@@ -5,27 +5,40 @@ import { Anton } from "next/font/google"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { auth, googleProvider } from "@/lib/firebase"
-import { signInWithPopup } from "firebase/auth"
+import { signInWithPopup, getAuth, GoogleAuthProvider } from "firebase/auth"
 
 const anton = Anton({ weight: "400", subsets: ["latin"] })
 
 export default function LoginPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState("")
 
   const handleGoogleLogin = async () => {
     try {
       setIsLoading(true)
-      const result = await signInWithPopup(auth, googleProvider)
+      setError("")
+
+      // Get fresh instance of auth and provider
+      const auth = getAuth()
+      const provider = new GoogleAuthProvider()
+      provider.setCustomParameters({
+        prompt: 'select_account'
+      })
+
+      const result = await signInWithPopup(auth, provider)
       
       // Store user info in localStorage
       localStorage.setItem("focusUserName", result.user.displayName || "User")
       localStorage.setItem("isLoggedIn", "true")
+      localStorage.setItem("userEmail", result.user.email || "")
+      localStorage.setItem("userId", result.user.uid)
       
       // Navigate to home page
       router.push("/home")
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error signing in with Google:", error)
+      setError(error.message || "Failed to sign in with Google. Please try again.")
     } finally {
       setIsLoading(false)
     }
@@ -36,6 +49,13 @@ export default function LoginPage() {
       <div className="w-full max-w-md space-y-12 text-center">
         {/* Title */}
         <h1 className={`${anton.className} text-6xl md:text-7xl tracking-tight text-white`}>WELCOME TO FOCUS FLOW</h1>
+
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 text-red-500">
+            {error}
+          </div>
+        )}
 
         {/* Login Button */}
         <div>
