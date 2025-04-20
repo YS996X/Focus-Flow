@@ -5,6 +5,7 @@ import { Bot } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { getMagnoliaResponse } from "@/lib/gemini"
 
 type Message = {
   role: "user" | "assistant"
@@ -14,8 +15,9 @@ type Message = {
 export default function AIHelperPage() {
   const router = useRouter()
   const [input, setInput] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
   const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", content: "Hi there! I'm your AI study assistant. Ask me any questions about your studies." },
+    { role: "assistant", content: "Hi there! I'm Magnolia, your AI study assistant. How can I help you with your studies today?" },
   ])
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -29,40 +31,29 @@ export default function AIHelperPage() {
     }
   }, [router])
 
-  const handleSend = () => {
-    if (!input.trim()) return
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return
 
-    setMessages([...messages, { role: "user", content: input }])
+    // Add user message
+    setMessages(prev => [...prev, { role: "user", content: input }])
+    setIsLoading(true)
 
-    setTimeout(() => {
-      let response = "I AM MUSIC "
-
-      const lowercaseInput = input.toLowerCase()
-
-      if (lowercaseInput.includes("math") || lowercaseInput.includes("calculus")) {
-        response =
-          "For math problems, I recommend breaking them down into smaller steps. Would you like me to help with a specific math concept or problem?"
-      } else if (lowercaseInput.includes("essay") || lowercaseInput.includes("writing")) {
-        response =
-          "When writing essays, start with a clear outline. Introduction with thesis, body paragraphs with evidence, and a conclusion that restates your main points. Would you like tips on a specific part of the writing process?"
-      } else if (
-        lowercaseInput.includes("study") &&
-        (lowercaseInput.includes("tip") || lowercaseInput.includes("advice"))
-      ) {
-        response =
-          "Some effective study techniques include: 1) Spaced repetition, 2) Active recall through practice questions, 3) Teaching concepts to others, 4) Taking regular breaks with the Pomodoro technique, and 5) Creating mind maps for complex topics."
-      } else if (lowercaseInput.includes("focus") || lowercaseInput.includes("concentrate")) {
-        response =
-          "To improve focus, try: 1) Using the Pomodoro technique (25 min work, 5 min break), 2) Removing distractions like phones, 3) Having a dedicated study space, 4) Setting clear, achievable goals for each session, and 5) Getting enough sleep and exercise."
-      } else if (lowercaseInput.includes("motivat")) {
-        response =
-          "Finding motivation can be challenging. Try setting small, achievable goals, rewarding yourself after study sessions, connecting your studies to your long-term aspirations, studying with friends, or changing your environment. Remember why you started this journey!"
-      }
-
-      setMessages((prev) => [...prev, { role: "assistant", content: response }])
-    }, 1000)
-
-    setInput("")
+    try {
+      // Get response from Magnolia
+      const response = await getMagnoliaResponse(input)
+      
+      // Add assistant message
+      setMessages(prev => [...prev, { role: "assistant", content: response }])
+    } catch (error) {
+      console.error("Error getting AI response:", error)
+      setMessages(prev => [...prev, { 
+        role: "assistant", 
+        content: "I apologize, but I'm having trouble processing your request right now. Please try again in a moment." 
+      }])
+    } finally {
+      setIsLoading(false)
+      setInput("")
+    }
   }
 
   useEffect(() => {
@@ -87,10 +78,10 @@ export default function AIHelperPage() {
       <main className="flex-1 container max-w-2xl mx-auto px-4 py-8 flex flex-col">
         <div className="flex items-center gap-2 mb-6">
           <Bot size={24} />
-          <h1 className="text-2xl font-bold">AI Study Helper</h1>
+          <h1 className="text-2xl font-bold">Magnolia - Your Study Assistant</h1>
         </div>
 
-        <p className="text-gray-400 mb-6">Ask questions about your studies</p>
+        <p className="text-gray-400 mb-6">Ask me anything about your studies, and I'll help guide you to understanding</p>
 
         <div className="bg-gray-900/50 rounded-xl p-6 flex-1 flex flex-col">
           <div className="flex-1 overflow-y-auto mb-4 space-y-4">
@@ -121,9 +112,18 @@ export default function AIHelperPage() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSend()}
+              disabled={isLoading}
             />
-            <Button onClick={handleSend} className="bg-purple-600 hover:bg-purple-700">
-              Send
+            <Button 
+              onClick={handleSend} 
+              className="bg-purple-600 hover:bg-purple-700"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
+              ) : (
+                "Send"
+              )}
             </Button>
           </div>
         </div>
