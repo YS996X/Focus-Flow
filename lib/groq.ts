@@ -1,3 +1,22 @@
+type ChatMessage = {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+type ChatResponse = {
+  choices: Array<{
+    message: {
+      content: string;
+    };
+  }>;
+}
+
+type GroqError = {
+  status: number;
+  statusText: string;
+  message: string;
+}
+
 const GROQ_API_KEY = "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";
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
@@ -11,11 +30,23 @@ Your approach:
 - Break complex topics into manageable parts
 - Balance helpfulness with encouraging independent thinking
 - Adapt communication style to prevent user frustration
+- dont use ** or other type of markdown formatting. you can use emojis.
 
 Keep responses concise, structured, and ADHD-friendly. Prioritize student understanding over quick solutions.`;
 
-export async function getMagnoliaResponse(userInput: string) {
+export async function getMagnoliaResponse(userInput: string): Promise<string> {
   try {
+    const messages: ChatMessage[] = [
+      {
+        role: 'system',
+        content: SYSTEM_PROMPT
+      },
+      {
+        role: 'user',
+        content: userInput
+      }
+    ];
+
     const response = await fetch(GROQ_API_URL, {
       method: 'POST',
       headers: {
@@ -23,17 +54,8 @@ export async function getMagnoliaResponse(userInput: string) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'mixtral-8x7b-32768',
-        messages: [
-          {
-            role: 'system',
-            content: SYSTEM_PROMPT
-          },
-          {
-            role: 'user',
-            content: userInput
-          }
-        ],
+        model: 'llama-3.1-8b-instant',
+        messages,
         temperature: 0.7,
         max_tokens: 1000,
         top_p: 1,
@@ -42,13 +64,25 @@ export async function getMagnoliaResponse(userInput: string) {
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorText = await response.text();
+      const errorDetails = {
+        status: response.status,
+        statusText: response.statusText,
+        message: errorText
+      };
+      
+      // Log error details to server console
+      console.error('Groq API Error:', JSON.stringify(errorDetails));
+      
+      return "I apologize, but I'm having trouble processing your request. Please try again in a moment.";
     }
 
-    const data = await response.json();
+    const data: ChatResponse = await response.json();
     return data.choices[0]?.message?.content || "I apologize, but I couldn't generate a response. Please try again.";
   } catch (error) {
-    console.error("Error calling Groq API:", error);
+    // Log unexpected errors to server console
+    console.error('Unexpected error:', error instanceof Error ? error.message : 'Unknown error');
+    
     return "I apologize, but I'm having trouble connecting right now. Please try again in a moment.";
   }
 } 
