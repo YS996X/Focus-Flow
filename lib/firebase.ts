@@ -24,6 +24,9 @@ const db = getFirestore(app);
 
 // Configure Google Provider
 const googleProvider = new GoogleAuthProvider();
+// Add Calendar API scope
+googleProvider.addScope('https://www.googleapis.com/auth/calendar');
+googleProvider.addScope('https://www.googleapis.com/auth/calendar.events');
 googleProvider.setCustomParameters({
   prompt: 'select_account'
 });

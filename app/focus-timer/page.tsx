@@ -117,7 +117,7 @@ export default function FocusTimerPage() {
     setCurrentQuote(quotes[Math.floor(Math.random() * quotes.length)])
   }, [])
 
-  // Enhanced session saving
+  // Enhanced session saving with backup
   const saveFocusSession = async (session: FocusSession, userId: string) => {
     try {
       const sessionToSave = {
@@ -127,21 +127,96 @@ export default function FocusTimerPage() {
         streak: streak + 1
       }
       
-      await addDoc(collection(db, "focusSessions"), sessionToSave)
-      console.log("Focus session saved successfully")
+      // Save to Firestore
+      const docRef = await addDoc(collection(db, "focusSessions"), sessionToSave)
+      console.log("Focus session saved successfully with ID:", docRef.id)
       
-      // Update streak
+      // Update local state
+      setFocusSessions(prev => [...prev, { ...sessionToSave, id: docRef.id }])
       setStreak(prev => prev + 1)
       
       // Show completion message
       setShowMotivationalQuote(true)
       setCurrentQuote(quotes[Math.floor(Math.random() * quotes.length)])
       
-      fetchSessions(userId)
+      // Fetch updated sessions
+      await fetchSessions(userId)
     } catch (error) {
       console.error("Error saving focus session:", error)
     }
   }
+
+  // Backup all focus data
+  const backupFocusData = async (userId: string) => {
+    try {
+      const backupData = {
+        userId,
+        timestamp: Timestamp.now(),
+        sessions: focusSessions,
+        stats: {
+          productivityScore,
+          sessionsToday,
+          focusTimeToday,
+          completionRate,
+          streak,
+          bestMorningTime,
+          bestEveningTime
+        }
+      }
+
+      await addDoc(collection(db, "focusBackups"), backupData)
+      console.log("Focus data backed up successfully")
+    } catch (error) {
+      console.error("Error backing up focus data:", error)
+    }
+  }
+
+  // Restore focus data from backup
+  const restoreFocusData = async (userId: string) => {
+    try {
+      const q = query(
+        collection(db, "focusBackups"),
+        where("userId", "==", userId),
+        orderBy("timestamp", "desc")
+      )
+      
+      const querySnapshot = await getDocs(q)
+      if (!querySnapshot.empty) {
+        const latestBackup = querySnapshot.docs[0].data()
+        
+        // Restore sessions
+        setFocusSessions(latestBackup.sessions)
+        
+        // Restore stats
+        const stats = latestBackup.stats
+        setProductivityScore(stats.productivityScore)
+        setSessionsToday(stats.sessionsToday)
+        setFocusTimeToday(stats.focusTimeToday)
+        setCompletionRate(stats.completionRate)
+        setStreak(stats.streak)
+        setBestMorningTime(stats.bestMorningTime)
+        setBestEveningTime(stats.bestEveningTime)
+        
+        console.log("Focus data restored successfully")
+      }
+    } catch (error) {
+      console.error("Error restoring focus data:", error)
+    }
+  }
+
+  // Auto-backup on session completion
+  useEffect(() => {
+    if (user && typeof user.uid === 'string' && focusSessions.length > 0) {
+      backupFocusData(user.uid)
+    }
+  }, [focusSessions, user])
+
+  // Auto-restore on component mount
+  useEffect(() => {
+    if (user && typeof user.uid === 'string') {
+      restoreFocusData(user.uid)
+    }
+  }, [user])
 
   // Calculate timer percentage for circular progress
   const calculateMainTimerPercentage = () => {
@@ -628,130 +703,132 @@ export default function FocusTimerPage() {
   }
 
   const calculateInsights = (sessionData: FocusSession[]) => {
-    if (sessionData.length === 0) {
-      // Reset all insights if no data
-      setSessionsToday(0)
-      setFocusTimeToday(0)
-      setProductivityScore(0)
-      setCompletionRate(0)
-      setBestMorningTime(null)
-      setBestEveningTime(null)
-      setStreak(0)
-      return
-    }
+    // Get today's date
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const todayStr = today.toISOString().split('T')[0]
     
-    // Helper function to format hour to 12-hour format with AM/PM
+    // Calculate daily streak
+    let currentStreak = 0
+    const uniqueDates = [...new Set(sessionData.map(session => session.date))].sort()
+    
+    for (let i = 0; i < 7; i++) {
+      const checkDate = new Date(today)
+      checkDate.setDate(checkDate.getDate() - i)
+      const checkDateStr = checkDate.toISOString().split('T')[0]
+      
+      if (uniqueDates.includes(checkDateStr)) {
+        currentStreak++
+      } else {
+        break
+      }
+    }
+    setStreak(currentStreak)
+
+    // Calculate today's sessions and focus time
+    const todaySessions = sessionData.filter(session => session.date === todayStr)
+    const todayFocusTime = todaySessions.reduce((sum, session) => sum + (session.duration || 0), 0) / 60 // Convert to minutes
+    setSessionsToday(todaySessions.length)
+    setFocusTimeToday(Math.round(todayFocusTime / 60 * 10) / 10) // Round to 1 decimal place
+
+    // Calculate completion rate
+    const completedSessions = sessionData.filter(session => session.completed)
+    const completionRateValue = sessionData.length > 0 
+      ? Math.round((completedSessions.length / sessionData.length) * 100)
+      : 0
+    setCompletionRate(completionRateValue)
+
+    // Calculate productivity score
+    const weekAgo = new Date(today)
+    weekAgo.setDate(weekAgo.getDate() - 7)
+    
+    const lastWeekSessions = sessionData.filter(session => {
+      if (!session.timestamp) return false
+      const sessionDate = session.timestamp.toDate()
+      return sessionDate >= weekAgo
+    })
+
+    // 1. Consistency (30 points)
+    const daysWithSessions = new Set(lastWeekSessions.map(s => s.date)).size
+    const consistencyScore = Math.round((daysWithSessions / 7) * 30)
+
+    // 2. Completion rate (30 points)
+    const weekCompletionScore = lastWeekSessions.length > 0
+      ? Math.round((lastWeekSessions.filter(s => s.completed).length / lastWeekSessions.length) * 30)
+      : 0
+
+    // 3. Focus time (40 points) - Target: 2 hours per day
+    const weeklyFocusHours = lastWeekSessions.reduce((sum, session) => sum + (session.duration || 0), 0) / 3600
+    const focusScore = Math.min(40, Math.round((weeklyFocusHours / 14) * 40))
+
+    const totalScore = consistencyScore + weekCompletionScore + focusScore
+    setProductivityScore(totalScore)
+
+    // Calculate focus time distribution for the last 7 days
+    const focusTimeByDay = new Map()
+    
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today)
+      date.setDate(date.getDate() - i)
+      const dateStr = date.toISOString().split('T')[0]
+      
+      const sessionsForDay = sessionData.filter(session => session.date === dateStr)
+      const minutesForDay = sessionsForDay.reduce((sum, session) => sum + (session.duration || 0), 0) / 60
+      focusTimeByDay.set(dateStr, Math.round(minutesForDay))
+    }
+
+    // Calculate best focus times
+    const hourCounts = new Map()
+    
+    sessionData.forEach(session => {
+      if (session.timeOfDay !== undefined && session.duration) {
+        const hour = session.timeOfDay
+        if (!hourCounts.has(hour)) {
+          hourCounts.set(hour, { count: 0, totalDuration: 0 })
+        }
+        const data = hourCounts.get(hour)
+        data.count++
+        data.totalDuration += session.duration
+        hourCounts.set(hour, data)
+      }
+    })
+
+    // Find best morning and evening times
+    let bestMorningScore = 0
+    let bestEveningScore = 0
+    let bestMorningHour = -1
+    let bestEveningHour = -1
+
+    hourCounts.forEach((data, hour) => {
+      const avgDuration = data.totalDuration / data.count
+      const score = data.count * (avgDuration / 3600) // Convert to hours
+
+      if (hour >= 5 && hour < 12 && score > bestMorningScore && data.count >= 3) {
+        bestMorningScore = score
+        bestMorningHour = hour
+      }
+      if (hour >= 17 && hour < 22 && score > bestEveningScore && data.count >= 3) {
+        bestEveningScore = score
+        bestEveningHour = hour
+      }
+    })
+
+    // Format and set best times
     const formatHour = (hour: number) => {
       const ampm = hour >= 12 ? 'PM' : 'AM'
       const formattedHour = hour % 12 || 12
       return `${formattedHour} ${ampm}`
     }
+
+    setBestMorningTime(bestMorningHour !== -1 
+      ? `${formatHour(bestMorningHour)}-${formatHour(bestMorningHour + 1)}`
+      : "Not enough data"
+    )
     
-    // Get today's date and format it
-    const today = new Date().toISOString().split('T')[0]
-    
-    // Calculate daily streak
-    const sortedDates = [...new Set(sessionData.map(session => session.date))].sort()
-    let currentStreak = 0
-    let date = new Date()
-    date.setHours(0, 0, 0, 0)
-
-    // Count backwards from today until we find a day without sessions
-    while (true) {
-      const dateStr = date.toISOString().split('T')[0]
-      const hasSession = sortedDates.includes(dateStr)
-      if (!hasSession) break
-      currentStreak++
-      date.setDate(date.getDate() - 1)
-    }
-    setStreak(currentStreak)
-
-    // Count today's sessions and focus time
-    const todaySessions = sessionData.filter(session => session.date === today)
-    const todayFocusTime = todaySessions.reduce((sum, session) => sum + (session.duration || 0), 0) / 3600 // Convert to hours
-    setSessionsToday(todaySessions.length)
-    setFocusTimeToday(parseFloat(todayFocusTime.toFixed(1)))
-
-    // Calculate completion rate
-    const completedSessions = sessionData.filter(session => session.completed)
-    const completionRateValue = Math.round((completedSessions.length / sessionData.length) * 100)
-    setCompletionRate(completionRateValue)
-
-    // Calculate productivity score based on multiple factors
-    const lastWeekSessions = sessionData.filter(session => {
-      if (!session.timestamp) return false
-      const sessionDate = session.timestamp.toDate()
-      const weekAgo = new Date()
-      weekAgo.setDate(weekAgo.getDate() - 7)
-      return sessionDate >= weekAgo
-    })
-
-    // Factors for productivity score:
-    // 1. Consistency (sessions per day) - max 30 points
-    const daysWithSessions = new Set(lastWeekSessions.map(s => s.date)).size
-    const consistencyScore = Math.min(30, Math.round((daysWithSessions / 7) * 30))
-
-    // 2. Session completion rate - max 30 points
-    const weekCompletionRate = lastWeekSessions.filter(s => s.completed).length / lastWeekSessions.length
-    const completionScore = Math.round(weekCompletionRate * 30)
-
-    // 3. Focus time - max 40 points
-    // Assume 2 hours per day is optimal (14 hours per week)
-    const weeklyFocusHours = lastWeekSessions.reduce((sum, session) => sum + (session.duration || 0), 0) / 3600
-    const focusScore = Math.min(40, Math.round((weeklyFocusHours / 14) * 40))
-
-    setProductivityScore(consistencyScore + completionScore + focusScore)
-
-    // Calculate best focus times
-    const hourCounts: Record<number, { count: number, totalDuration: number }> = {}
-    
-    sessionData.forEach(session => {
-      if (session.timeOfDay !== undefined && session.duration) {
-        const hour = session.timeOfDay
-        if (!hourCounts[hour]) {
-          hourCounts[hour] = { count: 0, totalDuration: 0 }
-        }
-        hourCounts[hour].count++
-        hourCounts[hour].totalDuration += session.duration
-      }
-    })
-
-    // Find best times based on both frequency and average duration
-    let bestMorningHour = -1
-    let bestEveningHour = -1
-    let maxMorningScore = 0
-    let maxEveningScore = 0
-
-    Object.entries(hourCounts).forEach(([hourStr, data]) => {
-      const hour = parseInt(hourStr)
-      const avgDuration = data.totalDuration / data.count
-      // Score = frequency * average duration (in minutes)
-      const score = data.count * (avgDuration / 60)
-
-      // Morning: 5am-12pm
-      if (hour >= 5 && hour < 12 && score > maxMorningScore) {
-        bestMorningHour = hour
-        maxMorningScore = score
-      }
-      // Evening: 5pm-10pm
-      if (hour >= 17 && hour < 22 && score > maxEveningScore) {
-        bestEveningHour = hour
-        maxEveningScore = score
-      }
-    })
-
-    // Only set best times if we have enough data (at least 3 sessions)
-    if (maxMorningScore > 0 && hourCounts[bestMorningHour]?.count >= 3) {
-      setBestMorningTime(`${formatHour(bestMorningHour)}-${formatHour(bestMorningHour + 1)}`)
-    } else {
-      setBestMorningTime(null)
-    }
-
-    if (maxEveningScore > 0 && hourCounts[bestEveningHour]?.count >= 3) {
-      setBestEveningTime(`${formatHour(bestEveningHour)}-${formatHour(bestEveningHour + 1)}`)
-    } else {
-      setBestEveningTime(null)
-    }
+    setBestEveningTime(bestEveningHour !== -1
+      ? `${formatHour(bestEveningHour)}-${formatHour(bestEveningHour + 1)}`
+      : "Not enough data"
+    )
   }
 
   return (
@@ -771,12 +848,12 @@ export default function FocusTimerPage() {
                     "text-7xl tracking-wider transition-colors",
                     isRunning ? "text-purple-400" : "text-white"
                   )}>
-                    {formattedTime}
-                  </div>
+                  {formattedTime}
+                </div>
                   {showMotivationalQuote && (
                     <div className="mt-2 text-gray-400 text-sm max-w-[200px] mx-auto">
                       {currentQuote}
-                    </div>
+              </div>
                   )}
                 </div>
               </div>
@@ -807,33 +884,33 @@ export default function FocusTimerPage() {
             {/* Timer Controls */}
             <div className="space-y-4">
               <div className="flex justify-center gap-2">
-                <Button
-                  variant={timerMode === "pomodoro" ? "default" : "ghost"}
-                  onClick={() => setTimerType("pomodoro")}
+              <Button
+                variant={timerMode === "pomodoro" ? "default" : "ghost"}
+                onClick={() => setTimerType("pomodoro")}
                   className="flex-1"
-                >
-                  Pomodoro
-                </Button>
-                <Button
-                  variant={timerMode === "shortBreak" ? "default" : "ghost"}
-                  onClick={() => setTimerType("shortBreak")}
+              >
+                Pomodoro
+              </Button>
+              <Button
+                variant={timerMode === "shortBreak" ? "default" : "ghost"}
+                onClick={() => setTimerType("shortBreak")}
                   className="flex-1"
-                >
-                  Short Break
-                </Button>
-                <Button
-                  variant={timerMode === "longBreak" ? "default" : "ghost"}
-                  onClick={() => setTimerType("longBreak")}
+              >
+                Short Break
+              </Button>
+              <Button
+                variant={timerMode === "longBreak" ? "default" : "ghost"}
+                onClick={() => setTimerType("longBreak")}
                   className="flex-1"
-                >
-                  Long Break
-                </Button>
-              </div>
+              >
+                Long Break
+              </Button>
+            </div>
 
               <div className="flex justify-center gap-2">
                 {!isRunning ? (
-                  <Button
-                    size="lg"
+            <Button
+              size="lg"
                     onClick={startTimer}
                     className="bg-purple-600 hover:bg-purple-700 text-white"
                   >
@@ -855,7 +932,7 @@ export default function FocusTimerPage() {
                   className="text-gray-400"
                 >
                   <RotateCcw className="w-6 h-6" />
-                </Button>
+            </Button>
               </div>
 
               {/* Session Progress */}
@@ -912,6 +989,22 @@ export default function FocusTimerPage() {
                   </div>
                 </div>
 
+                {/* Best Focus Times */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-gray-800/50 p-4 rounded-lg">
+                    <div className="text-sm text-gray-400 mb-1">Best Morning Time</div>
+                    <div className="text-xl font-medium text-purple-400">
+                      {bestMorningTime || "Not enough data"}
+                    </div>
+                  </div>
+                  <div className="bg-gray-800/50 p-4 rounded-lg">
+                    <div className="text-sm text-gray-400 mb-1">Best Evening Time</div>
+                    <div className="text-xl font-medium text-purple-400">
+                      {bestEveningTime || "Not enough data"}
+                    </div>
+                  </div>
+                </div>
+
                 {/* Focus Time Distribution */}
                 <div className="space-y-2">
                   <div className="font-medium mb-2">Focus Time Distribution</div>
@@ -953,39 +1046,6 @@ export default function FocusTimerPage() {
                         )
                       })
                     })()}
-                  </div>
-                </div>
-
-                {/* Best Focus Times */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-gray-800/50 p-4 rounded-lg">
-                    <div className="text-sm text-gray-400 mb-1">Best Morning Time</div>
-                    <div className="text-xl font-medium text-purple-400">
-                      {bestMorningTime || "Not enough data"}
-                    </div>
-                  </div>
-                  <div className="bg-gray-800/50 p-4 rounded-lg">
-                    <div className="text-sm text-gray-400 mb-1">Best Evening Time</div>
-                    <div className="text-xl font-medium text-purple-400">
-                      {bestEveningTime || "Not enough data"}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Recent Sessions */}
-                <div>
-                  <h3 className="font-medium mb-3">Recent Sessions</h3>
-                  <div className="space-y-2">
-                    {focusSessions.slice(0, 3).map((session, i) => (
-                      <div key={i} className="bg-gray-800/50 p-3 rounded-lg flex justify-between items-center">
-                        <div>
-                          <div className="text-sm text-gray-400">
-                            {session.duration / 60} minutes
-                          </div>
-                        </div>
-                        <div className="text-purple-400">{session.completed ? "Completed" : "Incomplete"}</div>
-                      </div>
-                    ))}
                   </div>
                 </div>
               </div>

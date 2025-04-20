@@ -9,6 +9,7 @@ import { auth } from "@/lib/firebase"
 import { getFirestore, collection, addDoc, getDocs, doc, deleteDoc, updateDoc, getDoc, query, where } from "firebase/firestore"
 import { app } from "@/lib/firebase"
 import { onAuthStateChanged } from "firebase/auth"
+import { AppHeader } from "@/components/app-header"
 
 // Initialize Firestore
 const db = getFirestore(app)
@@ -181,18 +182,7 @@ export default function NotesPage() {
 
   return (
     <div className="min-h-screen bg-transparent text-white flex flex-col">
-      <header className="p-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Link href="/home" className="text-2xl font-bold tracking-tight">
-            FOCUS FLOW
-          </Link>
-        </div>
-        <Link href="/home">
-          <Button variant="ghost" size="sm">
-            Back to Home
-          </Button>
-        </Link>
-      </header>
+      <AppHeader />
 
       <main className="flex-1 flex">
         {notes.length > 0 && (

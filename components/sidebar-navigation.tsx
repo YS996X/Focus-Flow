@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { FileText, Bot, Clock, CloudRain, CalendarDays, ListTodo, Menu, X } from "lucide-react"
+import Image from "next/image"
 
 export function SidebarNavigation() {
   const pathname = usePathname()
@@ -45,8 +46,17 @@ export function SidebarNavigation() {
         <div className="flex flex-col h-full p-4">
           {/* Logo */}
           <div className="py-6 px-4">
-            <Link href="/home" className="text-2xl font-bold tracking-tight">
-              FOCUS FLOW
+            <Link href="/home" className="flex items-center gap-3">
+              <Image 
+                src="/logo.png" 
+                alt="Focus Flow Logo" 
+                width={32} 
+                height={32} 
+                className="object-contain"
+              />
+              <span className="text-2xl font-bold tracking-tight">
+                FOCUS FLOW
+              </span>
             </Link>
           </div>
 

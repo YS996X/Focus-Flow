@@ -19,9 +19,13 @@ export function AppHeader({ showBackButton = true }: AppHeaderProps) {
     <>
       <header className="p-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Link href="/home" className="text-2xl font-bold tracking-tight">
-            FOCUS FLOW
-          </Link>
+          {showBackButton && (
+            <Link href="/home">
+              <Button variant="ghost" size="sm">
+                Back to Home
+              </Button>
+            </Link>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <Link href="/ambient">
@@ -44,13 +48,6 @@ export function AppHeader({ showBackButton = true }: AppHeaderProps) {
             <Music size={16} />
             Music
           </Button>
-          {showBackButton && (
-            <Link href="/home">
-              <Button variant="ghost" size="sm">
-                Back to Home
-              </Button>
-            </Link>
-          )}
         </div>
       </header>
       
