@@ -5,7 +5,7 @@ import { Anton } from "next/font/google"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { auth, googleProvider } from "@/lib/firebase"
-import { signInWithPopup, getAuth, GoogleAuthProvider } from "firebase/auth"
+import { signInWithPopup } from "firebase/auth"
 
 const anton = Anton({ weight: "400", subsets: ["latin"] })
 
@@ -19,14 +19,7 @@ export default function LoginPage() {
       setIsLoading(true)
       setError("")
 
-      // Get fresh instance of auth and provider
-      const auth = getAuth()
-      const provider = new GoogleAuthProvider()
-      provider.setCustomParameters({
-        prompt: 'select_account'
-      })
-
-      const result = await signInWithPopup(auth, provider)
+      const result = await signInWithPopup(auth, googleProvider)
       
       // Store user info in localStorage
       localStorage.setItem("focusUserName", result.user.displayName || "User")
