@@ -4,6 +4,8 @@ import { useState } from "react"
 import { Anton } from "next/font/google"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
+import { auth, googleProvider } from "@/lib/firebase"
+import { signInWithPopup } from "firebase/auth"
 
 const anton = Anton({ weight: "400", subsets: ["latin"] })
 
@@ -12,15 +14,21 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
 
   const handleGoogleLogin = async () => {
-    setIsLoading(true)
-    // Simulate authentication delay
-    setTimeout(() => {
-      // In a real app, this would be replaced with actual Google OAuth
-      localStorage.setItem("focusUserName", "User")
+    try {
+      setIsLoading(true)
+      const result = await signInWithPopup(auth, googleProvider)
+      
+      // Store user info in localStorage
+      localStorage.setItem("focusUserName", result.user.displayName || "User")
       localStorage.setItem("isLoggedIn", "true")
+      
+      // Navigate to home page
       router.push("/home")
+    } catch (error) {
+      console.error("Error signing in with Google:", error)
+    } finally {
       setIsLoading(false)
-    }, 1500)
+    }
   }
 
   return (
