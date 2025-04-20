@@ -2,36 +2,42 @@
 
 import { useState, useEffect } from 'react'
 import { Button } from './ui/button'
-import { X } from 'lucide-react'
+import { X, Play } from 'lucide-react'
+
+type WallpaperType = 'image' | 'video';
+
+type Wallpaper = {
+  path: string;
+  type: WallpaperType;
+}
 
 type WallpaperCategory = {
   title: string;
-  wallpapers: string[];
+  wallpapers: Wallpaper[];
 }
 
 const wallpaperCategories: WallpaperCategory[] = [
   {
     title: "Nature Wallpapers",
     wallpapers: [
-      "/wallpapers/nature/wallpaper%231.jpg",
-      "/wallpapers/nature/wallpaper%232.jpg",
-      "/wallpapers/nature/wallpaper%233.jpg",
+      { path: "/wallpapers/nature/wallpaper%231.jpg", type: 'image' },
+      { path: "/wallpapers/nature/wallpaper%232.jpg", type: 'image' },
+      { path: "/wallpapers/nature/wallpaper%233.jpg", type: 'image' },
     ]
   },
   {
     title: "Live Wallpapers",
     wallpapers: [
-      "/wallpapers/live/live-1.jpg",
-      "/wallpapers/live/live-2.jpg",
-      "/wallpapers/live/live-3.jpg",
+      { path: "/wallpapers/live/livewallpaper1.mp4", type: 'video' },
+      { path: "/wallpapers/live/livewallpaper2.mp4", type: 'video' },
     ]
   },
   {
     title: "Gradient Wallpapers",
     wallpapers: [
-      "/wallpapers/gradient/gradient-1.jpg",
-      "/wallpapers/gradient/gradient-2.jpg",
-      "/wallpapers/gradient/gradient-3.jpg",
+      { path: "/wallpapers/gradient/gradient-1.jpg", type: 'image' },
+      { path: "/wallpapers/gradient/gradient-2.jpg", type: 'image' },
+      { path: "/wallpapers/gradient/gradient-3.jpg", type: 'image' },
     ]
   }
 ]
@@ -43,28 +49,64 @@ interface SettingsMenuProps {
 
 export default function SettingsMenu({ isOpen, onClose }: SettingsMenuProps) {
   const [selectedWallpaper, setSelectedWallpaper] = useState<string>("");
+  const [isVideoWallpaper, setIsVideoWallpaper] = useState<boolean>(false);
 
   // Load saved wallpaper on initial render
   useEffect(() => {
     const savedWallpaper = localStorage.getItem('userWallpaper');
+    const wallpaperType = localStorage.getItem('userWallpaperType');
+    
     if (savedWallpaper) {
       setSelectedWallpaper(savedWallpaper);
-      applyWallpaper(savedWallpaper);
+      setIsVideoWallpaper(wallpaperType === 'video');
+      applyWallpaper(savedWallpaper, wallpaperType === 'video');
     }
   }, []);
 
-  const applyWallpaper = (wallpaperUrl: string) => {
-    // Add the with-wallpaper class to the body
-    document.body.classList.add('with-wallpaper');
+  const applyWallpaper = (wallpaperUrl: string, isVideo: boolean) => {
+    // Remove any existing video backgrounds
+    const existingVideos = document.querySelectorAll('.wallpaper-video');
+    existingVideos.forEach(video => video.remove());
     
-    // Set the wallpaper URL as a CSS variable
-    document.documentElement.style.setProperty('--wallpaper-url', `url("${wallpaperUrl}")`);
+    if (isVideo) {
+      // For video wallpapers, create a video element
+      const videoElement = document.createElement('video');
+      videoElement.src = wallpaperUrl;
+      videoElement.className = 'wallpaper-video';
+      videoElement.autoplay = true;
+      videoElement.loop = true;
+      videoElement.muted = true;
+      videoElement.playsInline = true;
+      videoElement.controls = false;
+      
+      // Add the video element first, so it's guaranteed to be in the DOM
+      document.body.prepend(videoElement);
+      
+      // Force play with timeout to ensure it has time to load
+      setTimeout(() => {
+        videoElement.play().catch(e => {
+          console.error("Failed to autoplay video:", e);
+          // Add a click handler to start playback on user interaction
+          document.addEventListener('click', () => videoElement.play(), { once: true });
+        });
+      }, 100);
+      
+      // Remove image wallpaper if any
+      document.body.classList.remove('with-wallpaper');
+      document.documentElement.style.removeProperty('--wallpaper-url');
+    } else {
+      // For image wallpapers
+      document.body.classList.add('with-wallpaper');
+      document.documentElement.style.setProperty('--wallpaper-url', `url("${wallpaperUrl}")`);
+    }
   };
 
-  const handleWallpaperSelect = (wallpaperUrl: string) => {
-    setSelectedWallpaper(wallpaperUrl);
-    localStorage.setItem('userWallpaper', wallpaperUrl);
-    applyWallpaper(wallpaperUrl);
+  const handleWallpaperSelect = (wallpaper: Wallpaper) => {
+    setSelectedWallpaper(wallpaper.path);
+    setIsVideoWallpaper(wallpaper.type === 'video');
+    localStorage.setItem('userWallpaper', wallpaper.path);
+    localStorage.setItem('userWallpaperType', wallpaper.type);
+    applyWallpaper(wallpaper.path, wallpaper.type === 'video');
   };
 
   if (!isOpen) return null;
@@ -87,15 +129,30 @@ export default function SettingsMenu({ isOpen, onClose }: SettingsMenuProps) {
                 <button
                   key={wallpaperIndex}
                   className={`relative aspect-video rounded-lg overflow-hidden border-2 transition-all ${
-                    selectedWallpaper === wallpaper ? 'border-purple-500' : 'border-transparent'
+                    selectedWallpaper === wallpaper.path ? 'border-purple-500' : 'border-transparent'
                   } hover:border-purple-300`}
                   onClick={() => handleWallpaperSelect(wallpaper)}
                 >
-                  <img
-                    src={wallpaper}
-                    alt={`${category.title} ${wallpaperIndex + 1}`}
-                    className="w-full h-full object-cover"
-                  />
+                  {wallpaper.type === 'image' ? (
+                    <img
+                      src={wallpaper.path}
+                      alt={`${category.title} ${wallpaperIndex + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="relative w-full h-full bg-black/50">
+                      <video 
+                        src={wallpaper.path} 
+                        className="w-full h-full object-cover" 
+                        muted 
+                        loop
+                        preload="metadata"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Play className="w-10 h-10 text-white/70" />
+                      </div>
+                    </div>
+                  )}
                 </button>
               ))}
             </div>

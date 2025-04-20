@@ -1,6 +1,6 @@
 "use client"
 import { useState, useEffect } from "react"
-import { Music, Settings, Maximize, Volume2, VolumeX } from "lucide-react"
+import { Music, Settings, Maximize, Minimize, Volume2, VolumeX } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { Anton } from "next/font/google"
@@ -21,6 +21,7 @@ export default function HomePage() {
   const [greeting, setGreeting] = useState("")
   const [isSpotifyVisible, setIsSpotifyVisible] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
 
   // Check login status
   useEffect(() => {
@@ -67,6 +68,54 @@ export default function HomePage() {
   const toggleTheme = () => {
     setIsDarkMode(!isDarkMode)
   }
+
+  // Toggle fullscreen
+  const toggleFullscreen = () => {
+    if (!isFullscreen) {
+      // Enter fullscreen
+      const docEl = document.documentElement
+      if (docEl.requestFullscreen) {
+        docEl.requestFullscreen()
+      } else if ((docEl as any).mozRequestFullScreen) { // Firefox
+        (docEl as any).mozRequestFullScreen()
+      } else if ((docEl as any).webkitRequestFullscreen) { // Chrome, Safari, Opera
+        (docEl as any).webkitRequestFullscreen()
+      } else if ((docEl as any).msRequestFullscreen) { // IE/Edge
+        (docEl as any).msRequestFullscreen()
+      }
+    } else {
+      // Exit fullscreen
+      if (document.exitFullscreen) {
+        document.exitFullscreen()
+      } else if ((document as any).mozCancelFullScreen) { // Firefox
+        (document as any).mozCancelFullScreen()
+      } else if ((document as any).webkitExitFullscreen) { // Chrome, Safari, Opera
+        (document as any).webkitExitFullscreen()
+      } else if ((document as any).msExitFullscreen) { // IE/Edge
+        (document as any).msExitFullscreen()
+      }
+    }
+    setIsFullscreen(!isFullscreen)
+  }
+
+  // Listen for fullscreen change events
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement)
+    }
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange)
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange)
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange)
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange)
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange)
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange)
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange)
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange)
+    }
+  }, [])
 
   return (
     <div
@@ -139,8 +188,13 @@ export default function HomePage() {
           <Button variant="ghost" size="icon" onClick={() => setIsSettingsOpen(true)}>
             <Settings size={20} />
           </Button>
-          <Button variant="ghost" size="icon">
-            <Maximize size={20} />
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={toggleFullscreen}
+            title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+          >
+            {isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
           </Button>
         </div>
       </footer>

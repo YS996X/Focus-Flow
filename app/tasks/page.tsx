@@ -293,7 +293,7 @@ export default function TasksPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col">
+    <div className="min-h-screen bg-transparent text-white flex flex-col">
       <header className="p-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Link href="/home" className="text-2xl font-bold tracking-tight">

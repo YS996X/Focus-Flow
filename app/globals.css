@@ -80,4 +80,22 @@
     z-index: -1;
     filter: brightness(0.7);
   }
+  
+  .wallpaper-video {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    min-width: 100% !important;
+    min-height: 100% !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    z-index: -5 !important;
+    filter: brightness(0.7) !important;
+  }
+  
+  /* Override any backgrounds to be transparent */
+  .min-h-screen {
+    background-color: transparent !important;
+  }
 }
