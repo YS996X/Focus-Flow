@@ -35,9 +35,9 @@ const wallpaperCategories: WallpaperCategory[] = [
   {
     title: "Gradient Wallpapers",
     wallpapers: [
-      { path: "/wallpapers/gradient/gradient-1.jpg", type: 'image' },
-      { path: "/wallpapers/gradient/gradient-2.jpg", type: 'image' },
-      { path: "/wallpapers/gradient/gradient-3.jpg", type: 'image' },
+      { path: "/wallpapers/gradient/1.avif", type: 'image' },
+      { path: "/wallpapers/gradient/2.avif", type: 'image' },
+      { path: "/wallpapers/gradient/3.avif", type: 'image' },
     ]
   }
 ]
