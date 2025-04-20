@@ -1,11 +1,5 @@
-import Groq from 'groq-sdk';
-
 const GROQ_API_KEY = "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";
-
-// Initialize Groq client
-const groq = new Groq({
-  apiKey: GROQ_API_KEY
-});
+const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 // The system prompt that defines Magnolia's personality and behavior
 const SYSTEM_PROMPT = `You are Magnolia, a learning companion in Focus Flow by Yuvraj Singh and Om Dwivedi. Help students learn independently while supporting their well-being.
@@ -22,25 +16,37 @@ Keep responses concise, structured, and ADHD-friendly. Prioritize student unders
 
 export async function getMagnoliaResponse(userInput: string) {
   try {
-    const chatCompletion = await groq.chat.completions.create({
-      messages: [
-        {
-          role: 'system',
-          content: SYSTEM_PROMPT
-        },
-        {
-          role: 'user',
-          content: userInput
-        }
-      ],
-      model: 'mixtral-8x7b-32768',
-      temperature: 0.7,
-      max_tokens: 1000,
-      top_p: 1,
-      stream: false
+    const response = await fetch(GROQ_API_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'mixtral-8x7b-32768',
+        messages: [
+          {
+            role: 'system',
+            content: SYSTEM_PROMPT
+          },
+          {
+            role: 'user',
+            content: userInput
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 1000,
+        top_p: 1,
+        stream: false
+      })
     });
 
-    return chatCompletion.choices[0]?.message?.content || "I apologize, but I couldn't generate a response. Please try again.";
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.choices[0]?.message?.content || "I apologize, but I couldn't generate a response. Please try again.";
   } catch (error) {
     console.error("Error calling Groq API:", error);
     return "I apologize, but I'm having trouble connecting right now. Please try again in a moment.";
