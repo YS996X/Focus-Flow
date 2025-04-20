@@ -5,7 +5,7 @@ import { Bot } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { getMagnoliaResponse } from "@/lib/gemini"
+import { getMagnoliaResponse } from "@/lib/groq"
 
 type Message = {
   role: "user" | "assistant"
@@ -17,7 +17,7 @@ export default function AIHelperPage() {
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", content: "Hi there! I'm Magnolia, your AI study assistant. How can I help you with your studies today?" },
+    { role: "assistant", content: "Hi there! I'm Magnolia, your learning companion. How can I help you with your studies today?" },
   ])
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -78,10 +78,10 @@ export default function AIHelperPage() {
       <main className="flex-1 container max-w-2xl mx-auto px-4 py-8 flex flex-col">
         <div className="flex items-center gap-2 mb-6">
           <Bot size={24} />
-          <h1 className="text-2xl font-bold">Magnolia - Your Study Assistant</h1>
+          <h1 className="text-2xl font-bold">Magnolia - Your Learning Companion</h1>
         </div>
 
-        <p className="text-gray-400 mb-6">Ask me anything about your studies, and I'll help guide you to understanding</p>
+        <p className="text-gray-400 mb-6">Let's work together to understand your studies better. I'm here to guide and support you.</p>
 
         <div className="bg-gray-900/50 rounded-xl p-6 flex-1 flex flex-col">
           <div className="flex-1 overflow-y-auto mb-4 space-y-4">
