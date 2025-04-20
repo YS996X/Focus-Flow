@@ -2,6 +2,7 @@ import type React from "react"
 import "@/app/globals.css"
 import { Inter, Anton } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
+import { AudioProvider } from "@/components/audio-provider"
 
 const inter = Inter({ subsets: ["latin"] })
 const anton = Anton({ weight: "400", subsets: ["latin"] })
@@ -20,7 +21,9 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
-          {children}
+          <AudioProvider>
+            {children}
+          </AudioProvider>
         </ThemeProvider>
       </body>
     </html>

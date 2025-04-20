@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getAnalytics } from "firebase/analytics";
+import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBslyTxIzO6bm_TCF4Vk4TWzlz_gsHO9T8",
@@ -18,6 +19,9 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 // Initialize Firebase Authentication and get a reference to the service
 const auth = getAuth(app);
 
+// Initialize Firestore
+const db = getFirestore(app);
+
 // Configure Google Provider
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({
@@ -27,4 +31,4 @@ googleProvider.setCustomParameters({
 // Only initialize analytics if window is available (client-side)
 const analytics = typeof window !== 'undefined' ? getAnalytics(app) : null;
 
-export { app, auth, googleProvider, analytics }; 
+export { app, auth, googleProvider, analytics, db }; 

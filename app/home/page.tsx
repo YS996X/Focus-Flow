@@ -8,11 +8,13 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { SpotifyPlayer } from "@/components/spotify-player"
 import SettingsMenu from "@/components/settings-menu"
+import { useAudio } from "@/components/audio-provider"
 
 const anton = Anton({ weight: "400", subsets: ["latin"] })
 
 export default function HomePage() {
   const router = useRouter()
+  const { isAmbientPlaying, ambientSound } = useAudio()
   const [currentTime, setCurrentTime] = useState(new Date())
   const [isDarkMode, setIsDarkMode] = useState(true)
   const [userName, setUserName] = useState("User")
@@ -179,9 +181,16 @@ export default function HomePage() {
           >
             <Music size={20} />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => setIsMuted(!isMuted)}>
-            {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
-          </Button>
+          <Link href="/ambient">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className={isAmbientPlaying ? "text-purple-400" : ""}
+              title={isAmbientPlaying ? `Playing: ${ambientSound}` : "Ambient Sounds"}
+            >
+              <Volume2 size={20} />
+            </Button>
+          </Link>
         </div>
 
         <div className="flex gap-2">

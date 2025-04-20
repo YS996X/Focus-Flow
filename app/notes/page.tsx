@@ -33,9 +33,9 @@ export default function NotesPage() {
       if (user) {
         setUserId(user.uid)
       } else {
-        // Redirect to login if not logged in
-        router.push("/")
-      }
+    // Redirect to login if not logged in
+      router.push("/")
+    }
       setLoading(false)
     })
 
@@ -229,10 +229,10 @@ export default function NotesPage() {
         )}
 
         <div className={`${notes.length > 0 ? 'w-3/5' : 'w-full'} p-4 flex flex-col`}>
-          <div className="flex items-center gap-2 mb-6">
-            <FileText size={24} />
-            <h1 className="text-2xl font-bold">Notes</h1>
-          </div>
+        <div className="flex items-center gap-2 mb-6">
+          <FileText size={24} />
+          <h1 className="text-2xl font-bold">Notes</h1>
+        </div>
 
           {currentNote ? (
             <>
@@ -244,21 +244,21 @@ export default function NotesPage() {
                 onChange={(e) => setCurrentNote({...currentNote, title: e.target.value})}
               />
               <div className="bg-gray-800/30 rounded-lg p-4 flex-1 mb-4">
-                <textarea
+          <textarea
                   className="w-full h-full min-h-[400px] bg-transparent border-none focus:outline-none resize-none"
-                  placeholder="Type your notes here..."
+            placeholder="Type your notes here..."
                   value={currentNote.content}
                   onChange={(e) => setCurrentNote({...currentNote, content: e.target.value})}
-                />
-              </div>
+          />
+        </div>
 
               <div className="flex justify-between">
                 <Button variant="outline" size="sm" onClick={createNewNote}>
-                  New Note
-                </Button>
+            New Note
+          </Button>
                 <Button variant="outline" size="sm" onClick={saveNote}>
-                  Save
-                </Button>
+            Save
+          </Button>
               </div>
             </>
           ) : (

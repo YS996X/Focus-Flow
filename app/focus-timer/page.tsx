@@ -1,27 +1,38 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Clock, BarChart2, Play, Pause, RotateCcw, Users, Music, MoreHorizontal, X } from "lucide-react"
+import { Clock, BarChart2, Play, Pause, RotateCcw, Users, Music, MoreHorizontal, X, Volume2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { Anton } from "next/font/google"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { SpotifyPlayer } from "@/components/spotify-player"
+import { auth, db } from "@/lib/firebase"
+import { onAuthStateChanged, User } from "firebase/auth"
+import { collection, addDoc, query, where, getDocs, orderBy, Timestamp } from "firebase/firestore"
+import { useAudio } from "@/components/audio-provider"
 
 const anton = Anton({ weight: "400", subsets: ["latin"] })
 
 type FocusSession = {
-  date: string
-  duration: number
-  completed: boolean
-}
+  id?: string;
+  userId?: string;
+  duration: number;
+  timestamp?: Timestamp;
+  timeOfDay?: number;
+  date?: string;
+  completed?: boolean;
+};
 
 export default function FocusTimerPage() {
   const router = useRouter()
+  const { isAmbientPlaying, ambientSound } = useAudio()
   const [isSpotifyVisible, setIsSpotifyVisible] = useState(false)
   const [isMoreModalVisible, setIsMoreModalVisible] = useState(false)
   const [activeTab, setActiveTab] = useState("insights")
+  const [user, setUser] = useState<User | null>(null)
+  const [focusSessions, setFocusSessions] = useState<FocusSession[]>([])
 
   // Check login status
   useEffect(() => {
@@ -52,19 +63,12 @@ export default function FocusTimerPage() {
   const [realisticTime, setRealisticTime] = useState(45)
 
   // Focus insights state
-  const [productivityScore, setProductivityScore] = useState(78)
-  const [focusSessions, setFocusSessions] = useState<FocusSession[]>([
-    { date: "2025-04-08", duration: 75, completed: true },
-    { date: "2025-04-09", duration: 150, completed: true },
-    { date: "2025-04-10", duration: 100, completed: true },
-    { date: "2025-04-11", duration: 200, completed: true },
-    { date: "2025-04-12", duration: 125, completed: true },
-    { date: "2025-04-13", duration: 50, completed: true },
-    { date: "2025-04-14", duration: 25, completed: false },
-  ])
-  const [sessionsToday, setSessionsToday] = useState(12)
-  const [focusTimeToday, setFocusTimeToday] = useState(3.5)
-  const [completionRate, setCompletionRate] = useState(85)
+  const [productivityScore, setProductivityScore] = useState(0)
+  const [sessionsToday, setSessionsToday] = useState(0)
+  const [focusTimeToday, setFocusTimeToday] = useState(0)
+  const [completionRate, setCompletionRate] = useState(0)
+  const [bestMorningTime, setBestMorningTime] = useState<string | null>(null)
+  const [bestEveningTime, setBestEveningTime] = useState<string | null>(null)
 
   // Body doubling state
   const [activeSessions, setActiveSessions] = useState([
@@ -76,7 +80,28 @@ export default function FocusTimerPage() {
   // Format time as MM:SS
   const formattedTime = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
 
-  // Calculate percentage of time remaining for the main timer
+  // Save focus session to Firebase
+  const saveFocusSession = async (session: FocusSession, userId: string) => {
+    try {
+      // Add user ID and timestamp to the session data
+      const sessionToSave = {
+        ...session,
+        userId: userId,
+        timestamp: Timestamp.now()
+      }
+      
+      // Save to Firestore
+      await addDoc(collection(db, "focusSessions"), sessionToSave)
+      console.log("Focus session saved successfully")
+      
+      // Refresh sessions to include the new one
+      fetchSessions(userId)
+    } catch (error) {
+      console.error("Error saving focus session:", error)
+    }
+  }
+
+  // Calculate timer percentage for circular progress
   const calculateMainTimerPercentage = () => {
     const totalSeconds = initialTime.minutes * 60 + initialTime.seconds
     const remainingSeconds = minutes * 60 + seconds
@@ -98,14 +123,23 @@ export default function FocusTimerPage() {
 
             // Record completed session
             const today = new Date().toISOString().split("T")[0]
-            const newSession = {
+            const timeOfDay = new Date().getHours()
+            const newSession: FocusSession = {
               date: today,
-              duration: initialTime.minutes,
+              duration: initialTime.minutes * 60, // convert to seconds for consistency
+              timeOfDay: timeOfDay,
               completed: true,
             }
+            
+            // Save to local state
             setFocusSessions((prev) => [...prev, newSession])
             setSessionsToday((prev) => prev + 1)
             setFocusTimeToday((prev) => prev + initialTime.minutes / 60)
+            
+            // Save to Firebase if user is authenticated
+            if (user && typeof user.uid === 'string') {
+              saveFocusSession(newSession, user.uid)
+            }
 
             // Auto switch to break if in pomodoro mode
             if (timerMode === "pomodoro") {
@@ -122,7 +156,7 @@ export default function FocusTimerPage() {
     }
 
     return () => clearInterval(interval)
-  }, [isRunning, minutes, seconds, initialTime, timerMode])
+  }, [isRunning, minutes, seconds, initialTime, timerMode, user])
 
   // Visual timer functionality
   useEffect(() => {
@@ -262,11 +296,15 @@ export default function FocusTimerPage() {
                 <div className="grid grid-cols-2 gap-2">
                   <div className="bg-gray-700/50 p-2 rounded-lg text-center">
                     <div className="text-sm text-gray-300">Morning</div>
-                    <div className="text-purple-400 font-medium">9-11 AM</div>
+                    <div className="text-purple-400 font-medium">
+                      {bestMorningTime || "Not enough data"}
+                    </div>
                   </div>
                   <div className="bg-gray-700/50 p-2 rounded-lg text-center">
                     <div className="text-sm text-gray-300">Evening</div>
-                    <div className="text-purple-400 font-medium">7-9 PM</div>
+                    <div className="text-purple-400 font-medium">
+                      {bestEveningTime || "Not enough data"}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -510,6 +548,132 @@ export default function FocusTimerPage() {
     }
   }
 
+  useEffect(() => {
+    // Check authentication state
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser)
+      if (currentUser) {
+        fetchSessions(currentUser.uid)
+      }
+    })
+
+    return () => unsubscribe()
+  }, [])
+
+  const fetchSessions = async (userId: string) => {
+    try {
+      const q = query(
+        collection(db, "focusSessions"),
+        where("userId", "==", userId),
+        orderBy("timestamp", "desc")
+      )
+      
+      const querySnapshot = await getDocs(q)
+      const sessionData: FocusSession[] = []
+      
+      querySnapshot.forEach((doc) => {
+        sessionData.push({
+          id: doc.id,
+          ...doc.data()
+        } as FocusSession)
+      })
+      
+      setFocusSessions(sessionData)
+      calculateInsights(sessionData)
+    } catch (error) {
+      console.error("Error fetching sessions:", error)
+    }
+  }
+
+  const calculateInsights = (sessionData: FocusSession[]) => {
+    if (sessionData.length === 0) {
+      // Reset all insights if no data
+      setSessionsToday(0)
+      setFocusTimeToday(0)
+      setProductivityScore(0)
+      setCompletionRate(0)
+      setBestMorningTime(null)
+      setBestEveningTime(null)
+      return
+    }
+    
+    // Calculate productivity score (based on consistency and session length)
+    const lastWeekSessions = sessionData.filter(
+      session => session.timestamp && session.timestamp.toDate() > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    )
+    
+    // Count today's sessions
+    const today = new Date().toISOString().split("T")[0]
+    const todaySessions = sessionData.filter(session => session.date === today)
+    setSessionsToday(todaySessions.length)
+    
+    // Calculate completion rate
+    const completedSessions = sessionData.filter(session => session.completed)
+    const completionRateValue = sessionData.length > 0 
+      ? Math.round((completedSessions.length / sessionData.length) * 100)
+      : 0
+    setCompletionRate(completionRateValue)
+    
+    // Calculate best focus time based on most frequent hour
+    const hourCounts: Record<number, number> = {}
+    sessionData.forEach(session => {
+      if (session.timeOfDay !== undefined) {
+        const hour = session.timeOfDay
+        hourCounts[hour] = (hourCounts[hour] || 0) + 1
+      }
+    })
+    
+    // Find best morning and evening times
+    let bestMorningHour = -1
+    let bestEveningHour = -1
+    let maxMorningCount = 0
+    let maxEveningCount = 0
+    
+    Object.entries(hourCounts).forEach(([hourStr, count]) => {
+      const hour = parseInt(hourStr)
+      // Morning: 5am-12pm
+      if (hour >= 5 && hour < 12 && count > maxMorningCount) {
+        bestMorningHour = hour
+        maxMorningCount = count
+      }
+      // Evening: 5pm-10pm
+      if (hour >= 17 && hour < 22 && count > maxEveningCount) {
+        bestEveningHour = hour
+        maxEveningCount = count
+      }
+    })
+    
+    const formatHour = (hour: number) => {
+      const ampm = hour >= 12 ? 'PM' : 'AM'
+      const formattedHour = hour % 12 || 12
+      return `${formattedHour} ${ampm}`
+    }
+    
+    // Only set best times if we have enough data
+    if (maxMorningCount > 0) {
+      setBestMorningTime(`${formatHour(bestMorningHour)}-${formatHour(bestMorningHour + 1)}`)
+    } else {
+      setBestMorningTime(null)
+    }
+    
+    if (maxEveningCount > 0) {
+      setBestEveningTime(`${formatHour(bestEveningHour)}-${formatHour(bestEveningHour + 1)}`)
+    } else {
+      setBestEveningTime(null)
+    }
+    
+    // Calculate total focus time and average session length
+    const totalSeconds = sessionData.reduce((sum, session) => sum + session.duration, 0)
+    setFocusTimeToday(parseFloat((totalSeconds / 3600).toFixed(1))) // in hours, with 1 decimal
+    
+    const avg = totalSeconds / sessionData.length / 60 // average in minutes
+    
+    // Calculate productivity score (max 100)
+    const consistencyScore = Math.min(lastWeekSessions.length * 10, 50) // 5 or more sessions per week = max score
+    const durationScore = Math.min(avg / 5, 50) // 25+ min average = max score
+    setProductivityScore(Math.floor(consistencyScore + durationScore))
+  }
+
   return (
     <div className="min-h-screen bg-transparent text-white flex flex-col">
       <header className="p-4 flex items-center justify-between">
@@ -519,6 +683,17 @@ export default function FocusTimerPage() {
           </Link>
         </div>
         <div className="flex items-center gap-2">
+          <Link href="/ambient">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`flex items-center gap-1 ${isAmbientPlaying ? "text-purple-400" : ""}`}
+              title={isAmbientPlaying ? `Playing: ${ambientSound}` : "Ambient Sounds"}
+            >
+              <Volume2 size={16} />
+              Ambient
+            </Button>
+          </Link>
           <Button
             variant="ghost"
             size="sm"
