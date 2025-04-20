@@ -23,6 +23,7 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
+.env
 .env*.local
 
 # vercel
@@ -30,4 +31,18 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
-next-env.d.ts 
+next-env.d.ts
+
+# IDE
+.idea/
+.vscode/
+
+# Firebase
+.firebase/
+firebase-debug.log*
+firebase-debug.*.log*
+
+# API Keys and Secrets
+*.key
+*.pem
+*.cert 
