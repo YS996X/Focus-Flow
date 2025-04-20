@@ -7,6 +7,7 @@ import { Anton } from "next/font/google"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { SpotifyPlayer } from "@/components/spotify-player"
+import SettingsMenu from "@/components/settings-menu"
 
 const anton = Anton({ weight: "400", subsets: ["latin"] })
 
@@ -19,6 +20,7 @@ export default function HomePage() {
   const [currentDay, setCurrentDay] = useState("")
   const [greeting, setGreeting] = useState("")
   const [isSpotifyVisible, setIsSpotifyVisible] = useState(false)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
   // Check login status
   useEffect(() => {
@@ -70,7 +72,7 @@ export default function HomePage() {
     <div
       className={cn(
         "min-h-screen flex flex-col transition-colors duration-300",
-        isDarkMode ? "bg-black text-white" : "bg-gray-50 text-gray-900",
+        isDarkMode ? "bg-transparent text-white" : "bg-transparent text-gray-900",
       )}
     >
       <main className="flex-1 flex flex-col items-center justify-center px-4 text-center">
@@ -78,7 +80,7 @@ export default function HomePage() {
           {greeting}, <span className="font-medium">{userName}</span>. It's {currentDay} time!
         </h2>
 
-        <div className={cn("text-[8rem] md:text-[12rem] font-bold tracking-tighter leading-none", anton.className)}>
+        <div className={cn("text-[8rem] md:text-[12rem] font-bold tracking-wider leading-none", anton.className)}>
           {formattedTime}
         </div>
 
@@ -134,7 +136,7 @@ export default function HomePage() {
         </div>
 
         <div className="flex gap-2">
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" onClick={() => setIsSettingsOpen(true)}>
             <Settings size={20} />
           </Button>
           <Button variant="ghost" size="icon">
@@ -144,6 +146,8 @@ export default function HomePage() {
       </footer>
 
       <SpotifyPlayer isVisible={isSpotifyVisible} onClose={() => setIsSpotifyVisible(false)} />
+      <SettingsMenu isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
     </div>
   )
 }
+ 
