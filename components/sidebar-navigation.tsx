@@ -7,6 +7,12 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { FileText, Bot, Clock, CloudRain, CalendarDays, ListTodo, Menu, X } from "lucide-react"
 import Image from "next/image"
+import { Anton } from "next/font/google"
+
+const anton = Anton({
+  weight: "400",
+  subsets: ["latin"],
+})
 
 export function SidebarNavigation() {
   const pathname = usePathname()
@@ -43,20 +49,16 @@ export function SidebarNavigation() {
           isMobileMenuOpen ? "w-64 translate-x-0" : "w-64 -translate-x-full",
         )}
       >
-        <div className="flex flex-col h-full p-4">
-          {/* Logo */}
-          <div className="py-6 px-4">
-            <Link href="/home" className="flex items-center gap-3">
-              <Image 
-                src="/logo.png" 
-                alt="Focus Flow Logo" 
-                width={32} 
-                height={32} 
-                className="object-contain"
-              />
-              <span className="text-2xl font-bold tracking-tight">
-                FOCUS FLOW
-              </span>
+        <div className="flex h-full flex-col gap-4">
+          <div className="flex h-[60px] items-center px-6">
+            <Link 
+              href="/home" 
+              className={cn(
+                "flex items-center gap-2 font-semibold",
+                anton.className
+              )}
+            >
+              <span className="text-xl">Focus Flow</span>
             </Link>
           </div>
 
