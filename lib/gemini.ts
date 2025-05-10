@@ -12,19 +12,35 @@ type ChatMessage = {
   }[];
 }
 
-type FeatureType = 'research' | 'advanced-research' | null;
+type FeatureType = 'image' | 'research' | 'advanced-research' | null;
 
 let currentApiKeyIndex = 0;
 
-const SYSTEM_PROMPT = `You are a helpful AI assistant focused on providing direct, factual information from sources. Your responses should be:
+const SYSTEM_PROMPT = `You are a helpful AI assistant focused on supporting students and learners. Your responses should be:
 
 1. Direct and focused on the user's query
-2. Based on the provided source information
-3. Present the information as-is from the source
-4. Do not add interpretations or perspectives
-5. If Wikipedia is found in the sources, prioritize using that information
+2. Factual and accurate
+3. Concise but thorough
+4. Empathetic and encouraging
+5. Structured with clear points when appropriate
 
-Only mention that you are an AI assistant if specifically asked about your identity or capabilities. Otherwise, focus on providing direct answers based on the source information.`;
+Only mention that you are an AI assistant if specifically asked about your identity or capabilities. Otherwise, focus on providing helpful responses to the user's questions.
+
+When handling image generation requests:
+1. If the user requests an image, respond with a clear, educational description
+2. Format the response as: "IMAGE_GENERATION: [detailed description]"
+3. Focus on educational, study-related, or academic themes
+4. Keep descriptions appropriate for a learning environment
+5. Avoid any potentially sensitive topics
+6. If the request seems inappropriate, suggest an educational alternative
+
+For research and advanced research:
+1. Break down complex topics into clear, understandable points
+2. Provide relevant examples and analogies
+3. Include key facts and data when available
+4. Suggest practical applications or next steps
+
+Remember to maintain a professional yet approachable tone, and always prioritize the user's learning needs.`;
 
 const getNextApiKey = (tier: 'premium' | 'normal') => {
   const keys = apiConfig[tier].keys;
@@ -32,76 +48,6 @@ const getNextApiKey = (tier: 'premium' | 'normal') => {
   currentApiKeyIndex = (currentApiKeyIndex + 1) % keys.length;
   return key;
 };
-
-async function performSearch(query: string): Promise<string> {
-  try {
-    const response = await fetch('https://api.scraperx.com/api/v1/google/search', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': '43b9bf6f09e6c5bb2505940a412a1fb3e5a5dce9303659663433357b0eba8ea1'
-      },
-      body: JSON.stringify({
-        country: 'us',
-        keyword: query,
-        language: 'en',
-        limit: 5,
-        page: 1
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    
-    if (!data || typeof data !== 'object' || !data.data) {
-      throw new Error('Invalid API response format');
-    }
-
-    // Find Wikipedia result if available
-    const wikiResult = data.data.find((result: any) => 
-      result.url && result.url.includes('wikipedia.org')
-    );
-
-    // Use Wikipedia if found, otherwise use the first result
-    const sourceResult = wikiResult || data.data[0];
-    
-    if (!sourceResult) {
-      throw new Error('No search results found');
-    }
-
-    // Scrape the content from the source
-    const scrapeResponse = await fetch('https://api.scraperx.com/api/v1/web/', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': '43b9bf6f09e6c5bb2505940a412a1fb3e5a5dce9303659663433357b0eba8ea1'
-      },
-      body: JSON.stringify({
-        url: sourceResult.url,
-        format: 'markdown',
-        enablejs: true
-      })
-    });
-
-    if (!scrapeResponse.ok) {
-      throw new Error(`HTTP error! status: ${scrapeResponse.status}`);
-    }
-
-    const scrapeData = await scrapeResponse.json();
-    
-    if (!scrapeData || typeof scrapeData !== 'object') {
-      throw new Error('Invalid scraping response format');
-    }
-
-    return scrapeData.data || scrapeData.content || scrapeData.text || 'No content found';
-  } catch (error) {
-    console.error('Search error:', error);
-    return 'Unable to retrieve information. Please try again or ask a different question.';
-  }
-}
 
 export async function getMagnoliaResponse(
   userInput: string,
@@ -111,33 +57,21 @@ export async function getMagnoliaResponse(
   try {
     const apiKey = getNextApiKey('premium');
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+    
+    // Select model based on feature
+    const model = genAI.getGenerativeModel({ 
+      model: feature === 'image' ? "gemini-2.0-flash-exp-image-generation" : "gemini-2.0-flash" 
+    });
 
-    // First, get a search query from the AI
-    let searchQuery = userInput;
-    if (feature === 'research' || feature === 'advanced-research') {
-      const searchPrompt = `Convert this question into an effective Google search query: "${userInput}"`;
-      const searchResult = await model.generateContent(searchPrompt);
-      searchQuery = searchResult.response.text();
-    }
-
-    // Perform the search and get content
-    let sourceContent = '';
-    if (feature === 'research' || feature === 'advanced-research') {
-      try {
-        sourceContent = await performSearch(searchQuery);
-      } catch (error) {
-        console.error('Search failed:', error);
-        sourceContent = 'No source information available.';
-      }
-    }
-
-    // Construct the final prompt
+    // Construct the prompt based on the feature
     let prompt = userInput;
-    if (feature === 'research') {
-      prompt = `Based on this source information: ${sourceContent}\n\nProvide a direct answer to: ${userInput}`;
+    if (feature === 'image') {
+      prompt = `Generate an image of: ${userInput}. 
+      Make it appropriate for a general audience.`;
+    } else if (feature === 'research') {
+      prompt = `Research and explain: ${userInput}`;
     } else if (feature === 'advanced-research') {
-      prompt = `Based on this source information: ${sourceContent}\n\nProvide a detailed answer to: ${userInput}`;
+      prompt = `Provide a detailed analysis of: ${userInput}`;
     }
 
     // Handle file attachments
@@ -176,7 +110,21 @@ export async function getMagnoliaResponse(
     });
 
     const response = await result.response;
-    return response.text();
+    let text = response.text();
+
+    // Process image generation response
+    if (feature === 'image' && text) {
+      // The API should return a base64 encoded image
+      if (text.startsWith('data:image/')) {
+        text = `IMAGE_DATA: ${text}`;
+      } else {
+        text = `IMAGE_GENERATION_ERROR: ${text}`;
+      }
+    } else if (userInput.toLowerCase().includes('image') || userInput.toLowerCase().includes('generate') || userInput.toLowerCase().includes('create')) {
+      text = "I'm sorry, but I can only generate images when the Image Generation mode is enabled. Please click the Image Generation button to enable this feature.";
+    }
+
+    return text;
   } catch (error) {
     console.error("Error getting AI response:", error);
     throw new Error("Failed to get AI response");

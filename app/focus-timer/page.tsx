@@ -1,18 +1,18 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Clock, BarChart2, Play, Pause, RotateCcw, Users, Music, MoreHorizontal, X, Volume2 } from "lucide-react"
+import { Clock, BarChart2, Play, Pause, RotateCcw, Users, Music, MoreHorizontal, X, Volume2, Trophy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { Anton } from "next/font/google"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { SpotifyPlayer } from "@/components/spotify-player"
 import { auth, db } from "@/lib/firebase"
 import { onAuthStateChanged, User } from "firebase/auth"
 import { collection, addDoc, query, where, getDocs, orderBy, Timestamp } from "firebase/firestore"
 import { useAudio } from "@/components/audio-provider"
 import { AppHeader } from "@/components/app-header"
+import WallpaperProvider from "@/components/wallpaper-provider"
 
 const anton = Anton({ weight: "400", subsets: ["latin"] })
 
@@ -30,12 +30,12 @@ type FocusSession = {
 export default function FocusTimerPage() {
   const router = useRouter()
   const { isAmbientPlaying, ambientSound } = useAudio()
-  const [isSpotifyVisible, setIsSpotifyVisible] = useState(false)
   const [isMoreModalVisible, setIsMoreModalVisible] = useState(false)
   const [activeTab, setActiveTab] = useState("insights")
   const [user, setUser] = useState<User | null>(null)
   const [focusSessions, setFocusSessions] = useState<FocusSession[]>([])
-
+  const [showMoreOptions, setShowMoreOptions] = useState(false)
+ 
   // Check login status
   useEffect(() => {
     const loggedIn = localStorage.getItem("isLoggedIn") === "true"
@@ -55,14 +55,14 @@ export default function FocusTimerPage() {
 
   // Visual timer state
   const [visualTimerProgress, setVisualTimerProgress] = useState(100)
-  const [visualTimerDuration, setVisualTimerDuration] = useState(15)
+  const [visualTimerDuration, setVisualTimerDuration] = useState(25)
   const [visualTimerRunning, setVisualTimerRunning] = useState(false)
   const [visualTimerElapsed, setVisualTimerElapsed] = useState(0)
   const visualTimerIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   // Time estimator state
-  const [estimatedTime, setEstimatedTime] = useState(30)
-  const [realisticTime, setRealisticTime] = useState(45)
+  const [estimatedTime, setEstimatedTime] = useState(25)
+  const [realisticTime, setRealisticTime] = useState(38)
 
   // Focus insights state
   const [productivityScore, setProductivityScore] = useState(0)
@@ -833,27 +833,33 @@ export default function FocusTimerPage() {
 
   return (
     <div className="min-h-screen bg-transparent text-white flex flex-col">
+      <WallpaperProvider />
       <AppHeader />
 
-      <main className="flex-1 container max-w-6xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <main className="flex-1 px-8 py-8 relative overflow-hidden">
+        {/* Background overlays - matching home page style */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0a1526]/80 via-[#0a1526]/70 to-[#0a1526]/80 mix-blend-multiply z-10 rounded-2xl" />
+        <div className="absolute inset-0 bg-gradient-radial from-[#995c1d]/10 via-transparent to-transparent opacity-40 z-10 rounded-2xl" />
+        <div className="absolute inset-0 shadow-[inset_0_0_150px_30px_rgba(0,0,0,0.8)] pointer-events-none z-10 rounded-2xl" />
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 relative z-20">
           {/* Timer Section */}
-          <div className="space-y-6">
+          <div className="space-y-8">
             {/* Timer Display */}
-            <div className="relative aspect-square max-w-md mx-auto">
-              <div className="absolute inset-0 bg-gray-900/50 rounded-full flex items-center justify-center">
+            <div className="relative aspect-square max-w-md mx-auto bg-[#1a1a1a]/40 rounded-2xl p-1 backdrop-blur-lg border border-white/5">
+              <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center">
                   <div className={cn(
                     anton.className,
-                    "text-7xl tracking-wider transition-colors",
+                    "text-8xl tracking-wider transition-colors",
                     isRunning ? "text-purple-400" : "text-white"
                   )}>
-                  {formattedTime}
-                </div>
+                    {formattedTime}
+                  </div>
                   {showMotivationalQuote && (
-                    <div className="mt-2 text-gray-400 text-sm max-w-[200px] mx-auto">
+                    <div className="mt-4 text-gray-300 text-lg max-w-[280px] mx-auto font-light">
                       {currentQuote}
-              </div>
+                    </div>
                   )}
                 </div>
               </div>
@@ -864,8 +870,8 @@ export default function FocusTimerPage() {
                   r="48%"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth="4"
-                  className="text-gray-800"
+                  strokeWidth="2"
+                  className="text-gray-800/30"
                 />
                 <circle
                   cx="50%"
@@ -873,78 +879,87 @@ export default function FocusTimerPage() {
                   r="48%"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth="4"
+                  strokeWidth="2"
                   strokeDasharray={`${2 * Math.PI * 48}`}
                   strokeDashoffset={`${2 * Math.PI * 48 * (1 - calculateMainTimerPercentage() / 100)}`}
-                  className="text-purple-500 transition-all duration-1000"
+                  className="text-purple-500/80 transition-all duration-1000"
                 />
               </svg>
             </div>
 
             {/* Timer Controls */}
-            <div className="space-y-4">
-              <div className="flex justify-center gap-2">
-              <Button
-                variant={timerMode === "pomodoro" ? "default" : "ghost"}
-                onClick={() => setTimerType("pomodoro")}
-                  className="flex-1"
-              >
-                Pomodoro
-              </Button>
-              <Button
-                variant={timerMode === "shortBreak" ? "default" : "ghost"}
-                onClick={() => setTimerType("shortBreak")}
-                  className="flex-1"
-              >
-                Short Break
-              </Button>
-              <Button
-                variant={timerMode === "longBreak" ? "default" : "ghost"}
-                onClick={() => setTimerType("longBreak")}
-                  className="flex-1"
-              >
-                Long Break
-              </Button>
-            </div>
+            <div className="space-y-6">
+              <div className="flex justify-center gap-2 p-1 bg-[#1a1a1a]/40 backdrop-blur-lg rounded-full border border-white/5">
+                <Button
+                  variant={timerMode === "pomodoro" ? "default" : "ghost"}
+                  onClick={() => setTimerType("pomodoro")}
+                  className={cn(
+                    "flex-1 rounded-full transition-colors",
+                    timerMode === "pomodoro" ? "bg-purple-600 hover:bg-purple-700" : "hover:bg-white/10"
+                  )}
+                >
+                  Pomodoro
+                </Button>
+                <Button
+                  variant={timerMode === "shortBreak" ? "default" : "ghost"}
+                  onClick={() => setTimerType("shortBreak")}
+                  className={cn(
+                    "flex-1 rounded-full transition-colors",
+                    timerMode === "shortBreak" ? "bg-purple-600 hover:bg-purple-700" : "hover:bg-white/10"
+                  )}
+                >
+                  Short Break
+                </Button>
+                <Button
+                  variant={timerMode === "longBreak" ? "default" : "ghost"}
+                  onClick={() => setTimerType("longBreak")}
+                  className={cn(
+                    "flex-1 rounded-full transition-colors",
+                    timerMode === "longBreak" ? "bg-purple-600 hover:bg-purple-700" : "hover:bg-white/10"
+                  )}
+                >
+                  Long Break
+                </Button>
+              </div>
 
-              <div className="flex justify-center gap-2">
+              <div className="flex justify-center gap-4">
                 {!isRunning ? (
-            <Button
-              size="lg"
+                  <Button
+                    size="lg"
                     onClick={startTimer}
-                    className="bg-purple-600 hover:bg-purple-700 text-white"
+                    className="bg-purple-600 hover:bg-purple-700 text-white h-16 w-16 rounded-full"
                   >
-                    <Play className="w-6 h-6" />
+                    <Play className="w-8 h-8" />
                   </Button>
                 ) : (
                   <Button
                     size="lg"
                     onClick={pauseTimer}
-                    className="bg-purple-600 hover:bg-purple-700 text-white"
+                    className="bg-purple-600 hover:bg-purple-700 text-white h-16 w-16 rounded-full"
                   >
-                    <Pause className="w-6 h-6" />
+                    <Pause className="w-8 h-8" />
                   </Button>
                 )}
                 <Button
                   size="lg"
                   variant="outline"
                   onClick={resetTimer}
-                  className="text-gray-400"
+                  className="text-gray-400 h-16 w-16 rounded-full border-white/10 hover:bg-white/5"
                 >
-                  <RotateCcw className="w-6 h-6" />
-            </Button>
+                  <RotateCcw className="w-8 h-8" />
+                </Button>
               </div>
 
               {/* Session Progress */}
               {isRunning && (
-                <div className="bg-gray-800/30 rounded-lg p-4">
+                <div className="bg-[#1a1a1a]/40 backdrop-blur-lg rounded-xl p-4 border border-white/5">
                   <div className="flex justify-between items-center mb-2">
-                    <div className="text-sm text-gray-400">Session Progress</div>
+                    <div className="text-sm text-gray-300">Session Progress</div>
                     <div className="text-sm text-purple-400">{Math.round(calculateMainTimerPercentage())}%</div>
                   </div>
-                  <div className="w-full bg-gray-700 rounded-full h-1">
+                  <div className="w-full bg-gray-800/50 rounded-full h-1.5">
                     <div
-                      className="bg-purple-500 h-1 rounded-full transition-all duration-1000"
+                      className="bg-purple-500 h-1.5 rounded-full transition-all duration-1000"
                       style={{ width: `${calculateMainTimerPercentage()}%` }}
                     />
                   </div>
@@ -953,13 +968,13 @@ export default function FocusTimerPage() {
 
               {/* Streak and Goals */}
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-gray-800/30 rounded-lg p-4 text-center">
-                  <div className="text-2xl font-bold text-purple-400">{streak}</div>
-                  <div className="text-sm text-gray-400">Day Streak</div>
+                <div className="bg-[#1a1a1a]/40 backdrop-blur-lg rounded-xl p-4 border border-white/5 text-center">
+                  <div className="text-3xl font-bold text-purple-400">{streak}</div>
+                  <div className="text-sm text-gray-300 mt-1">Day Streak</div>
                 </div>
-                <div className="bg-gray-800/30 rounded-lg p-4 text-center">
-                  <div className="text-2xl font-bold text-purple-400">{sessionsToday}/{dailyGoal}</div>
-                  <div className="text-sm text-gray-400">Daily Goal</div>
+                <div className="bg-[#1a1a1a]/40 backdrop-blur-lg rounded-xl p-4 border border-white/5 text-center">
+                  <div className="text-3xl font-bold text-purple-400">{sessionsToday}/{dailyGoal}</div>
+                  <div className="text-sm text-gray-300 mt-1">Daily Goal</div>
                 </div>
               </div>
             </div>
@@ -967,86 +982,97 @@ export default function FocusTimerPage() {
 
           {/* Stats Section */}
           <div className="space-y-6">
-            <div className="bg-gray-900/50 rounded-xl p-6">
-              <div className="flex items-center gap-2 mb-6">
-                <BarChart2 size={24} />
-                <h2 className="text-2xl font-bold">Focus Stats</h2>
+            <div className="bg-[#1a1a1a]/40 backdrop-blur-lg rounded-xl p-6 border border-white/5">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold">Focus Insights</h2>
+                <div className="text-sm text-gray-400">Today's Overview</div>
               </div>
 
-              {/* Enhanced Stats Display */}
-              <div className="space-y-6">
-                {/* Productivity Score */}
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <div className="font-medium">Productivity Score</div>
-                    <div className="text-purple-400 font-medium">{productivityScore}/100</div>
-                  </div>
-                  <div className="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
-                    <div
-                      className="bg-purple-500 h-full transition-all duration-1000"
-                      style={{ width: `${productivityScore}%` }}
-                    />
-                  </div>
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="bg-[#232323]/50 rounded-xl p-4 backdrop-blur-sm">
+                  <div className="text-3xl font-bold text-purple-400">{productivityScore}</div>
+                  <div className="text-sm text-gray-300 mt-1">Focus Score</div>
                 </div>
-
-                {/* Best Focus Times */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-gray-800/50 p-4 rounded-lg">
-                    <div className="text-sm text-gray-400 mb-1">Best Morning Time</div>
-                    <div className="text-xl font-medium text-purple-400">
-                      {bestMorningTime || "Not enough data"}
-                    </div>
-                  </div>
-                  <div className="bg-gray-800/50 p-4 rounded-lg">
-                    <div className="text-sm text-gray-400 mb-1">Best Evening Time</div>
-                    <div className="text-xl font-medium text-purple-400">
-                      {bestEveningTime || "Not enough data"}
-                    </div>
-                  </div>
+                <div className="bg-[#232323]/50 rounded-xl p-4 backdrop-blur-sm">
+                  <div className="text-3xl font-bold text-purple-400">{focusTimeToday}h</div>
+                  <div className="text-sm text-gray-300 mt-1">Focus Time</div>
                 </div>
+              </div>
 
-                {/* Focus Time Distribution */}
-                <div className="space-y-2">
-                  <div className="font-medium mb-2">Focus Time Distribution</div>
-                  <div className="grid grid-cols-7 gap-1 h-24">
-                    {(() => {
-                      // Get the last 7 days
-                      const days = Array.from({ length: 7 }, (_, i) => {
-                        const date = new Date()
-                        date.setDate(date.getDate() - i)
-                        return date.toISOString().split('T')[0]
-                      }).reverse()
+              <div className="space-y-4">
+                <div className="font-medium text-gray-200">Focus Time Distribution</div>
+                <div className="grid grid-cols-7 gap-1 h-32">
+                  {(() => {
+                    const days = Array.from({ length: 7 }, (_, i) => {
+                      const date = new Date()
+                      date.setDate(date.getDate() - i)
+                      return date.toISOString().split('T')[0]
+                    }).reverse()
 
-                      // Calculate focus time for each day
-                      const dailyFocusTime = days.map(date => {
-                        const sessionsForDay = focusSessions.filter(session => session.date === date)
-                        const totalMinutes = sessionsForDay.reduce((sum, session) => sum + (session.duration || 0), 0) / 60
-                        return totalMinutes
-                      })
+                    const dailyFocusTime = days.map(date => {
+                      const sessionsForDay = focusSessions.filter(session => session.date === date)
+                      const totalMinutes = sessionsForDay.reduce((sum, session) => sum + (session.duration || 0), 0) / 60
+                      return totalMinutes
+                    })
 
-                      // Find the maximum focus time for scaling
-                      const maxFocusTime = Math.max(...dailyFocusTime, 120) // At least 2 hours for scale
+                    const maxFocusTime = Math.max(...dailyFocusTime, 120)
 
-                      return days.map((date, i) => {
-                        const height = (dailyFocusTime[i] / maxFocusTime) * 100
-                        const dayName = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][new Date(date).getDay()]
-                        
-                        return (
-                          <div key={date} className="flex flex-col justify-end">
-                            <div
-                              className="bg-purple-500/70 rounded-t relative group"
-                              style={{ height: `${height}%` }}
-                            >
-                              <div className="absolute bottom-full mb-1 left-1/2 transform -translate-x-1/2 bg-gray-900 text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                                {Math.round(dailyFocusTime[i])} min
-                              </div>
+                    return days.map((date, i) => {
+                      const height = (dailyFocusTime[i] / maxFocusTime) * 100
+                      const dayName = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][new Date(date).getDay()]
+                      
+                      return (
+                        <div key={date} className="flex flex-col justify-end">
+                          <div
+                            className="bg-purple-500/40 hover:bg-purple-500/60 transition-colors rounded-t relative group"
+                            style={{ height: `${height}%` }}
+                          >
+                            <div className="absolute bottom-full mb-1 left-1/2 transform -translate-x-1/2 bg-[#1a1a1a] text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap backdrop-blur-lg">
+                              {Math.round(dailyFocusTime[i])} min
                             </div>
-                            <div className="text-xs text-center mt-1">{dayName}</div>
                           </div>
-                        )
-                      })
-                    })()}
+                          <div className="text-xs text-center mt-2 text-gray-400">{dayName}</div>
+                        </div>
+                      )
+                    })
+                  })()}
+                </div>
+              </div>
+            </div>
+
+            {/* Additional Features Section */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-[#1a1a1a]/40 backdrop-blur-lg rounded-xl p-4 border border-white/5">
+                <h3 className="font-medium mb-2 flex items-center gap-2">
+                  <Clock className="w-4 h-4" />
+                  Best Focus Times
+                </h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300">Morning</span>
+                    <span className="text-purple-400">{bestMorningTime || 'Not enough data'}</span>
                   </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-300">Evening</span>
+                    <span className="text-purple-400">{bestEveningTime || 'Not enough data'}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-[#1a1a1a]/40 backdrop-blur-lg rounded-xl p-4 border border-white/5">
+                <h3 className="font-medium mb-2 flex items-center gap-2">
+                  <Trophy className="w-4 h-4" />
+                  Achievements
+                </h3>
+                <div className="text-sm text-gray-300">
+                  {streak >= 3 ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-yellow-400">🔥</span>
+                      <span>{streak} Day Streak!</span>
+                    </div>
+                  ) : (
+                    <div className="text-gray-400">Keep going to earn achievements!</div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1054,73 +1080,66 @@ export default function FocusTimerPage() {
         </div>
       </main>
 
-      {/* Spotify Player */}
-      <SpotifyPlayer isVisible={isSpotifyVisible} onClose={() => setIsSpotifyVisible(false)} />
-
       {/* More Options Modal */}
-      {isMoreModalVisible && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/80 z-50">
-          <div className="bg-gray-900 rounded-xl p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">More Options</h2>
-              <Button variant="ghost" size="sm" onClick={() => setIsMoreModalVisible(false)}>
-                <X size={20} />
-              </Button>
-            </div>
+      {showMoreOptions && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-[#1a1a1a]/90 rounded-xl w-full max-w-lg p-6 relative">
+            <button
+              onClick={() => setShowMoreOptions(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
+            >
+              <X size={20} />
+            </button>
 
-            {/* Modal Tabs */}
-            <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-              <Button
-                variant={activeTab === "insights" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setActiveTab("insights")}
-                className={activeTab === "insights" ? "bg-purple-600" : ""}
-              >
-                <BarChart2 size={16} className="mr-1" /> Insights
-              </Button>
-              <Button
-                variant={activeTab === "bodyDoubling" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setActiveTab("bodyDoubling")}
-                className={activeTab === "bodyDoubling" ? "bg-purple-600" : ""}
-              >
-                <Users size={16} className="mr-1" /> Body Doubling
-              </Button>
-              <Button
-                variant={activeTab === "timeEstimator" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setActiveTab("timeEstimator")}
-                className={activeTab === "timeEstimator" ? "bg-purple-600" : ""}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="mr-1"
-                >
-                  <circle cx="12" cy="12" r="10" />
-                  <polyline points="12 6 12 12 16 14" />
-                </svg>
-                Time Estimator
-              </Button>
-              <Button
-                variant={activeTab === "tips" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setActiveTab("tips")}
-                className={activeTab === "tips" ? "bg-purple-600" : ""}
-              >
-                Tips
-              </Button>
-            </div>
+            <h2 className="text-xl font-semibold mb-6">Timer Settings</h2>
 
-            {/* Tab Content */}
-            <div className="pb-2">{renderTabContent()}</div>
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Timer Duration (minutes)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="120"
+                  value={initialTime.minutes}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value)
+                    setInitialTime({ ...initialTime, minutes: value })
+                    setMinutes(value)
+                    setEstimatedTime(value)
+                    setVisualTimerDuration(value)
+                  }}
+                  className="w-full bg-[#232323] rounded-lg border border-white/5 px-3 py-2 text-white focus:outline-none focus:border-purple-500/30"
+                />
+              </div>
+
+              <div>
+                <h3 className="text-sm font-medium text-gray-300 mb-2">Quick Presets</h3>
+                <div className="grid grid-cols-3 gap-2">
+                  {[15, 25, 45].map((preset) => (
+                    <button
+                      key={preset}
+                      onClick={() => {
+                        setInitialTime({ minutes: preset, seconds: 0 })
+                        setMinutes(preset)
+                        setSeconds(0)
+                        setEstimatedTime(preset)
+                        setVisualTimerDuration(preset)
+                      }}
+                      className={cn(
+                        "py-2 rounded-lg text-sm font-medium transition-colors",
+                        initialTime.minutes === preset
+                          ? "bg-purple-600 text-white"
+                          : "bg-[#232323] text-gray-300 hover:bg-white/5"
+                      )}
+                    >
+                      {preset}m
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

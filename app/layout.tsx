@@ -8,8 +8,8 @@ const inter = Inter({ subsets: ["latin"] })
 const anton = Anton({ weight: "400", subsets: ["latin"] })
 
 export const metadata = {
-  title: "Focus Flow - AI-Powered Study & Productivity App",
-  description: "Enhance your productivity with Focus Flow, an AI-powered study companion featuring a Pomodoro timer, ambient sounds, Spotify integration, and ADHD-friendly focus tools. Designed for students and professionals seeking optimal concentration.",
+  title: "Focus Flow",
+  description: "Enhance your productivity with Focus Flow, an AI-powered study companion featuring a Pomodoro timer, ambient sounds, music player, and ADHD-friendly focus tools. Designed for students and professionals seeking optimal concentration.",
   keywords: [
     "Focus Flow", "Focus", "Study", "AI", "RexGroup", "Rexlabs", "Floucs", 
     "Study Timer", "Lockin", "Boost Focus", "Productivity", "Pomodoro Timer",
@@ -54,6 +54,9 @@ export const metadata = {
   },
   verification: {
     google: 'v3GwX1LDdY7TOMgUMP6S_mdce6FwCQ7SMiEhQ9tSgrM',
+  },
+  icons: {
+    icon: "/favicon.ico",
   },
 }
 

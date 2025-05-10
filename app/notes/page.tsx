@@ -10,6 +10,8 @@ import { getFirestore, collection, addDoc, getDocs, doc, deleteDoc, updateDoc, g
 import { app } from "@/lib/firebase"
 import { onAuthStateChanged } from "firebase/auth"
 import { AppHeader } from "@/components/app-header"
+import { cn } from "@/lib/utils"
+import WallpaperProvider from "@/components/wallpaper-provider"
 
 // Initialize Firestore
 const db = getFirestore(app)
@@ -182,25 +184,47 @@ export default function NotesPage() {
 
   return (
     <div className="min-h-screen bg-transparent text-white flex flex-col">
+      <WallpaperProvider />
       <AppHeader />
 
-      <main className="flex-1 flex">
+      <main className="flex-1 flex relative">
+        {/* Background overlays - matching home page style */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0a1526]/80 via-[#0a1526]/70 to-[#0a1526]/80 mix-blend-multiply" />
+        <div className="absolute inset-0 bg-gradient-radial from-[#995c1d]/10 via-transparent to-transparent opacity-40" />
+        <div className="absolute inset-0 shadow-[inset_0_0_150px_30px_rgba(0,0,0,0.8)] pointer-events-none" />
+
+        {/* Notes List */}
         {notes.length > 0 && (
-          <div className="w-2/5 border-r border-gray-800 p-4 overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4">Previous Notes</h2>
+          <div className="w-2/5 border-r border-white/10 p-6 overflow-y-auto relative z-10">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold">Previous Notes</h2>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={createNewNote}
+                className="border-white/10 hover:bg-white/5"
+              >
+                New Note
+              </Button>
+            </div>
             <div className="space-y-3">
               {notes.map((note) => (
                 <div 
                   key={note.id} 
-                  className={`p-3 rounded-lg cursor-pointer ${currentNote?.id === note.id ? 'bg-gray-800' : 'bg-gray-800/30 hover:bg-gray-800/50'}`}
+                  className={cn(
+                    "p-4 rounded-xl backdrop-blur-lg border border-white/5 cursor-pointer transition-all duration-200",
+                    currentNote?.id === note.id 
+                      ? 'bg-[#1a1a1a]/60 border-purple-500/30' 
+                      : 'bg-[#1a1a1a]/40 hover:bg-[#1a1a1a]/50'
+                  )}
                   onClick={() => openNote(note)}
                 >
                   <div className="flex justify-between items-start">
-                    <h3 className="font-medium truncate">{note.title}</h3>
+                    <h3 className="font-medium truncate">{note.title || "Untitled Note"}</h3>
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className="h-6 w-6 text-gray-400 hover:text-red-500"
+                      className="h-6 w-6 text-gray-400 hover:text-red-400 transition-colors -mr-2"
                       onClick={(e) => {
                         e.stopPropagation();
                         deleteNote(note.id);
@@ -209,7 +233,7 @@ export default function NotesPage() {
                       <Trash2 size={16} />
                     </Button>
                   </div>
-                  <p className="text-sm text-gray-400 mt-1 line-clamp-2">
+                  <p className="text-sm text-gray-400 mt-2 line-clamp-2">
                     {note.content.substring(0, 100)}
                   </p>
                 </div>
@@ -218,45 +242,59 @@ export default function NotesPage() {
           </div>
         )}
 
-        <div className={`${notes.length > 0 ? 'w-3/5' : 'w-full'} p-4 flex flex-col`}>
-        <div className="flex items-center gap-2 mb-6">
-          <FileText size={24} />
-          <h1 className="text-2xl font-bold">Notes</h1>
-        </div>
+        {/* Note Editor */}
+        <div className={cn(
+          "p-6 flex flex-col relative z-10",
+          notes.length > 0 ? 'w-3/5' : 'w-full'
+        )}>
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2">
+              <FileText size={24} className="text-purple-400" />
+              <h1 className="text-2xl font-semibold">Notes</h1>
+            </div>
+            {currentNote && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={saveNote}
+                className="border-white/10 hover:bg-white/5"
+              >
+                Save Changes
+              </Button>
+            )}
+          </div>
 
           {currentNote ? (
-            <>
+            <div className="flex flex-col flex-1">
               <input
                 type="text"
-                className="w-full bg-transparent border-none text-xl font-medium mb-4 focus:outline-none"
-                placeholder="Title"
+                className="w-full bg-[#1a1a1a]/40 backdrop-blur-lg rounded-xl px-4 py-3 text-xl font-medium mb-4 focus:outline-none border border-white/5 focus:border-purple-500/30 transition-colors"
+                placeholder="Note Title"
                 value={currentNote.title}
                 onChange={(e) => setCurrentNote({...currentNote, title: e.target.value})}
               />
-              <div className="bg-gray-800/30 rounded-lg p-4 flex-1 mb-4">
-          <textarea
-                  className="w-full h-full min-h-[400px] bg-transparent border-none focus:outline-none resize-none"
-            placeholder="Type your notes here..."
+              <div className="flex-1 bg-[#1a1a1a]/40 backdrop-blur-lg rounded-xl border border-white/5 overflow-hidden">
+                <textarea
+                  className="w-full h-full min-h-[400px] bg-transparent p-4 focus:outline-none resize-none text-gray-100"
+                  placeholder="Start typing your note..."
                   value={currentNote.content}
                   onChange={(e) => setCurrentNote({...currentNote, content: e.target.value})}
-          />
-        </div>
-
-              <div className="flex justify-between">
-                <Button variant="outline" size="sm" onClick={createNewNote}>
-            New Note
-          </Button>
-                <Button variant="outline" size="sm" onClick={saveNote}>
-            Save
-          </Button>
+                />
               </div>
-            </>
+            </div>
           ) : (
-            <div className="flex flex-col items-center justify-center flex-1">
-              <p className="text-gray-400 mb-4">Select a note to view or create a new one</p>
-              <Button variant="outline" onClick={createNewNote}>
-                New Note
-              </Button>
+            <div className="flex-1 flex flex-col items-center justify-center">
+              <div className="bg-[#1a1a1a]/40 backdrop-blur-lg rounded-xl p-8 border border-white/5 text-center">
+                <FileText size={48} className="mx-auto mb-4 text-purple-400/60" />
+                <p className="text-gray-300 mb-6">Select a note to view or create a new one</p>
+                <Button
+                  variant="outline"
+                  onClick={createNewNote}
+                  className="border-white/10 hover:bg-white/5"
+                >
+                  Create New Note
+                </Button>
+              </div>
             </div>
           )}
         </div>

@@ -1,460 +1,192 @@
 "use client"
 
-import React, { useState, useRef, useEffect } from "react"
-import type { JSX } from 'react'
-import { Bot, Sparkles, Brain, Book, Send, RefreshCw, Download, Trash2, Lightbulb, Image, Search, BrainCircuit, Upload, X } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { getMagnoliaResponse as getGeminiResponse } from "@/lib/gemini"
-import { getMagnoliaResponse as getGemmaResponse } from "@/lib/gemma"
+import { useState, useRef } from "react"
 import { AppHeader } from "@/components/app-header"
-import { collection, addDoc, getDocs, query, where, orderBy, Timestamp } from "firebase/firestore"
-import { auth, db } from "@/lib/firebase"
-import { onAuthStateChanged } from "firebase/auth"
+import { Button } from "@/components/ui/button"
+import { Bot, Send, Sparkles, Brain, Lightbulb } from "lucide-react"
+import WallpaperProvider from "@/components/wallpaper-provider"
 
 type Message = {
-  role: "user" | "assistant"
+  id: string
   content: string
-  timestamp: number
-  files?: {
-    type: string
-    name: string
-    content: string
-  }[]
+  role: "user" | "assistant"
 }
 
-type SuggestedPrompt = {
-  title: string
-  prompt: string
-  icon: JSX.Element
-}
-
-type FeatureType = 'research' | 'advanced-research' | null
-
-const suggestedPrompts: SuggestedPrompt[] = [
-  {
-    title: "Study Strategy",
-    prompt: "Can you help me create an effective study strategy for my upcoming exams?",
-    icon: <Brain className="w-4 h-4" />
-  },
-  {
-    title: "Explain Topic",
-    prompt: "Can you explain this topic in a simple way that's easy to understand?",
-    icon: <Book className="w-4 h-4" />
-  },
-  {
-    title: "Memory Tips",
-    prompt: "What are some memory techniques I can use to remember this information better?",
-    icon: <Sparkles className="w-4 h-4" />
-  },
-  {
-    title: "Quick Tips",
-    prompt: "Give me some quick study tips for better focus and productivity.",
-    icon: <Lightbulb className="w-4 h-4" />
-  }
-]
-
-export default function AIHelperPage(): JSX.Element {
-  const router = useRouter()
+export default function AIHelperPage() {
+  const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [messages, setMessages] = useState<Message[]>([
-    { 
-      role: "assistant", 
-      content: "Hi there! I'm Magnolia, your learning companion. How can I help you with your studies today?",
-      timestamp: Date.now()
-    },
-  ])
-  const [showSuggestions, setShowSuggestions] = useState(true)
-  const [selectedFeature, setSelectedFeature] = useState<FeatureType>(null)
-  const [files, setFiles] = useState<File[]>([])
-  const [premiumRequests, setPremiumRequests] = useState(0)
-  const [lastRequestTime, setLastRequestTime] = useState<number | null>(null)
-  const [cooldown, setCooldown] = useState(false)
-  const [userId, setUserId] = useState<string | null>(null)
+  const [sending, setSending] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const chatContainerRef = useRef<HTMLDivElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
 
-  // Check login status and fetch user data
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setUserId(user.uid)
-        fetchUserData(user.uid)
-      } else {
-        router.push("/")
-      }
-    })
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!input.trim() || sending) return
 
-    return () => unsubscribe()
-  }, [router])
-
-  const fetchUserData = async (uid: string) => {
-    try {
-      const today = new Date().toISOString().split('T')[0]
-      const q = query(
-        collection(db, "aiRequests"),
-        where("userId", "==", uid),
-        where("date", "==", today)
-      )
-      const querySnapshot = await getDocs(q)
-      
-      if (!querySnapshot.empty) {
-        const doc = querySnapshot.docs[0]
-        setPremiumRequests(doc.data().count)
-        setLastRequestTime(doc.data().lastRequestTime)
-      }
-    } catch (error) {
-      console.error("Error fetching user data:", error)
+    const userMessage: Message = {
+      id: Math.random().toString(36).substr(2, 9),
+      content: input.trim(),
+      role: "user"
     }
-  }
-
-  // Handle cooldown timer
-  useEffect(() => {
-    if (lastRequestTime) {
-      const now = Date.now()
-      const timeSinceLastRequest = now - lastRequestTime
-      const cooldownTime = 3000 // 3 seconds
-
-      if (timeSinceLastRequest < cooldownTime) {
-        setCooldown(true)
-        const timer = setTimeout(() => {
-          setCooldown(false)
-        }, cooldownTime - timeSinceLastRequest)
-        return () => clearTimeout(timer)
-      }
-    }
-  }, [lastRequestTime])
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const newFiles = Array.from(e.target.files)
-      setFiles(prev => [...prev, ...newFiles])
-    }
-  }
-
-  const removeFile = (index: number) => {
-    setFiles(prev => prev.filter((_, i) => i !== index))
-  }
-
-  const handleSend = async (messageText: string = input) => {
-    if (!messageText.trim() || isLoading || cooldown) return
-
-    // Add user message
-    const newMessage: Message = { 
-      role: "user", 
-      content: messageText, 
-      timestamp: Date.now(),
-      files: files.map(file => ({
-        type: file.type,
-        name: file.name,
-        content: URL.createObjectURL(file)
-      }))
-    }
-    setMessages(prev => [...prev, newMessage])
-    setInput("")
-    setShowSuggestions(false)
-    setIsLoading(true)
-    setLastRequestTime(Date.now())
 
     try {
-      let response: string
-      if (premiumRequests < 20) {
-        // Use premium API
-        response = await getGeminiResponse(messageText, selectedFeature, newMessage.files)
-        setPremiumRequests(prev => prev + 1)
-        
-        // Update Firebase
-        if (userId) {
-          const today = new Date().toISOString().split('T')[0]
-          const q = query(
-            collection(db, "aiRequests"),
-            where("userId", "==", userId),
-            where("date", "==", today)
-          )
-          const querySnapshot = await getDocs(q)
-          
-          if (!querySnapshot.empty) {
-            const doc = querySnapshot.docs[0]
-            await addDoc(collection(db, "aiRequests"), {
-              userId,
-              date: today,
-              count: premiumRequests + 1,
-              lastRequestTime: Date.now()
-            })
-          } else {
-            await addDoc(collection(db, "aiRequests"), {
-              userId,
-              date: today,
-              count: 1,
-              lastRequestTime: Date.now()
-            })
-          }
-        }
-      } else {
-        // Use normal API
-        response = await getGemmaResponse(messageText)
+      setSending(true)
+      setMessages(prev => [...prev, userMessage])
+      setInput("")
+      scrollToBottom()
+
+      // Simulate AI response (replace with actual AI integration)
+      const aiResponse: Message = {
+        id: Math.random().toString(36).substr(2, 9),
+        content: "I'm here to help! This is a placeholder response. The actual AI integration will be implemented soon.",
+        role: "assistant"
       }
       
-      // Add assistant message
-      setMessages(prev => [...prev, { 
-        role: "assistant", 
-        content: response,
-        timestamp: Date.now()
-      }])
+      setMessages(prev => [...prev, aiResponse])
+      scrollToBottom()
+      setSending(false)
     } catch (error) {
-      console.error("Error getting AI response:", error)
-      setMessages(prev => [...prev, { 
-        role: "assistant", 
-        content: "I apologize, but I'm having trouble processing your request right now. Please try again in a moment.",
-        timestamp: Date.now()
-      }])
-    } finally {
-      setIsLoading(false)
-      setFiles([])
-      setSelectedFeature(null)
+      console.error("Error:", error)
+      setSending(false)
     }
   }
 
-  const clearChat = () => {
-    setMessages([{ 
-      role: "assistant", 
-      content: "Hi there! I'm Magnolia, your learning companion. How can I help you with your studies today?",
-      timestamp: Date.now()
-    }])
-    setShowSuggestions(true)
-    setFiles([])
-    setSelectedFeature(null)
+  const scrollToBottom = () => {
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    }, 100)
   }
 
-  const downloadChat = () => {
-    const chatContent = messages
-      .map(msg => `${msg.role.toUpperCase()} (${new Date(msg.timestamp).toLocaleString()})\n${msg.content}\n`)
-      .join("\n")
-    
-    const blob = new Blob([chatContent], { type: "text/plain" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = "study-chat.txt"
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSubmit(e)
+    }
   }
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages])
 
   return (
     <div className="min-h-screen bg-transparent text-white flex flex-col">
+      <WallpaperProvider />
       <AppHeader />
 
-      <main className="flex-1 container max-w-4xl mx-auto px-4 py-8 flex flex-col">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <Bot size={24} />
-            <h1 className="text-2xl font-bold">Magnolia - Your Learning Companion</h1>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={downloadChat}
-              className="text-gray-400 hover:text-white"
-              title="Download chat"
-            >
-              <Download className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearChat}
-              className="text-gray-400 hover:text-white"
-              title="Clear chat"
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          </div>
+      <main className="flex-1 px-8 py-8 relative overflow-hidden">
+        {/* Background overlays - matching home page style */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0a1526]/80 via-[#0a1526]/70 to-[#0a1526]/80 mix-blend-multiply" />
+        <div className="absolute inset-0 bg-gradient-radial from-[#995c1d]/10 via-transparent to-transparent opacity-40" />
+        <div className="absolute inset-0 shadow-[inset_0_0_150px_30px_rgba(0,0,0,0.8)] pointer-events-none" />
+
+        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Chat Section */}
+          <div className="lg:col-span-2 flex flex-col h-[calc(100vh-12rem)]">
+            <div className="flex items-center gap-2 mb-6">
+              <Bot size={24} className="text-purple-400" />
+              <h1 className="text-2xl font-semibold">AI Helper</h1>
         </div>
 
-        <div className="bg-gray-900/50 rounded-xl p-6 flex-1 flex flex-col">
-          <div 
-            ref={chatContainerRef}
-            className="flex-1 overflow-y-auto mb-4 space-y-4 pr-4 custom-scrollbar"
-          >
-            {messages.map((message, index) => (
-              <div key={index} className={`flex gap-2 ${message.role === "user" ? "justify-end" : ""}`}>
-                {message.role === "assistant" && (
-                  <div className="bg-purple-600/30 p-2 rounded-lg">
-                    <Bot size={16} />
+            {/* Messages */}
+            <div className="flex-1 bg-[#1a1a1a]/40 backdrop-blur-lg rounded-xl border border-white/5 overflow-hidden flex flex-col">
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {messages.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Bot size={32} className="mx-auto mb-3 text-gray-500" />
+                    <p className="text-gray-400">No messages yet. Start a conversation!</p>
                   </div>
-                )}
-                <div
-                  className={`flex flex-col space-y-2 p-4 rounded-lg ${
-                    message.role === 'user'
-                      ? 'bg-blue-100 ml-auto'
-                      : 'bg-gray-100'
-                  }`}
-                >
-                  <div className="text-sm mb-1 text-gray-400">
-                    {message.timestamp ? new Date(message.timestamp).toLocaleTimeString() : 'Just now'}
-                  </div>
-                  {message.content}
-                  {message.files && message.files.length > 0 && (
-                    <div className="mt-2">
-                      {message.files.map((file, index) => (
-                        <div key={index} className="text-sm text-gray-600">
-                          Attached: {file.name}
-                        </div>
-                      ))}
+                ) : (
+                  messages.map((message) => (
+                    <div
+                      key={message.id}
+                      className={`flex items-start gap-3 ${
+                        message.role === "assistant" ? "flex-row" : "flex-row-reverse"
+                      }`}
+                    >
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          message.role === "assistant"
+                            ? "bg-purple-600/20 border border-purple-600/30"
+                            : "bg-blue-600/20 border border-blue-600/30"
+                        }`}
+                      >
+                        {message.role === "assistant" ? (
+                          <Bot size={16} className="text-purple-400" />
+                        ) : (
+                          <Sparkles size={16} className="text-blue-400" />
+                        )}
+                      </div>
+                      <div
+                        className={`rounded-xl px-4 py-2.5 max-w-[80%] ${
+                          message.role === "assistant"
+                            ? "bg-[#232323]/50 border border-white/5"
+                            : "bg-purple-600/20 border border-purple-500/30"
+                        }`}
+                      >
+                        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                      </div>
                     </div>
-                  )}
+                  ))
+                )}
+                <div ref={messagesEndRef} />
+                  </div>
+
+              {/* Input */}
+              <form onSubmit={handleSubmit} className="p-4 border-t border-white/5">
+                <div className="relative">
+                  <textarea
+                    ref={inputRef}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Type your message..."
+                    className="w-full bg-[#232323] rounded-xl border border-white/5 pl-4 pr-12 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-purple-500/30 transition-colors resize-none"
+                    rows={1}
+                    style={{
+                      minHeight: "44px",
+                      maxHeight: "120px"
+                    }}
+                  />
+                  <Button
+                    type="submit"
+                    size="icon"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-transparent hover:bg-white/5"
+                    disabled={!input.trim() || sending}
+                  >
+                    <Send size={16} className="text-purple-400" />
+                  </Button>
                 </div>
+              </form>
               </div>
-            ))}
-            <div ref={messagesEndRef} />
           </div>
 
-          {showSuggestions && messages.length === 1 && (
-            <div className="grid grid-cols-2 gap-2 mb-4">
-              {suggestedPrompts.map((prompt, index) => (
-                <button
-                  key={index}
-                  onClick={() => handleSend(prompt.prompt)}
-                  className="flex items-center gap-2 p-3 rounded-lg bg-gray-800/50 hover:bg-gray-700/50 transition-colors text-left"
-                >
-                  <div className="bg-purple-600/30 p-2 rounded-lg">
-                    {prompt.icon}
+          {/* Features Section */}
+          <div className="space-y-6">
+            <div className="bg-[#1a1a1a]/40 backdrop-blur-lg rounded-xl p-6 border border-white/5">
+              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <Brain size={20} className="text-purple-400" />
+                <span>AI Features</span>
+              </h2>
+              <div className="space-y-4">
+                <div className="bg-[#232323]/50 rounded-lg p-4 border border-white/5">
+                  <h3 className="font-medium flex items-center gap-2">
+                    <Lightbulb size={16} className="text-yellow-400" />
+                    Task Suggestions
+                  </h3>
+                  <p className="text-sm text-gray-400 mt-1">
+                    Get personalized suggestions for tasks and schedules based on your habits and goals.
+                  </p>
+                </div>
+                <div className="bg-[#232323]/50 rounded-lg p-4 border border-white/5">
+                  <h3 className="font-medium flex items-center gap-2">
+                    <Bot size={16} className="text-blue-400" />
+                    Smart Assistance
+                  </h3>
+                  <p className="text-sm text-gray-400 mt-1">
+                    Ask questions, get help with planning, or receive guidance on productivity techniques.
+                  </p>
                   </div>
-                  <div>
-                    <div className="font-medium">{prompt.title}</div>
-                    <div className="text-sm text-gray-400 line-clamp-1">{prompt.prompt}</div>
                   </div>
-                </button>
-              ))}
-            </div>
-          )}
-
-          <div className="flex flex-col gap-4 mt-auto">
-            {premiumRequests < 20 && (
-              <div className="flex gap-2">
-                <Button
-                  variant={selectedFeature === 'research' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setSelectedFeature(selectedFeature === 'research' ? null : 'research')}
-                  className="flex-1"
-                >
-                  <Search className="w-4 h-4 mr-2" />
-                  Research
-                </Button>
-                <Button
-                  variant={selectedFeature === 'advanced-research' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setSelectedFeature(selectedFeature === 'advanced-research' ? null : 'advanced-research')}
-                  className="flex-1"
-                >
-                  <BrainCircuit className="w-4 h-4 mr-2" />
-                  Advanced Research
-                </Button>
-              </div>
-            )}
-
-            {files.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {files.map((file, index) => (
-                  <div key={index} className="flex items-center gap-2 bg-gray-800/50 p-2 rounded-lg">
-                    <span className="text-sm">{file.name}</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeFile(index)}
-                      className="h-6 w-6 p-0"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="flex gap-2">
-              {premiumRequests < 20 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="bg-gray-800/70 hover:bg-gray-700/70"
-                >
-                  <Upload className="w-4 h-4 mr-2" />
-                  Attach Files
-                </Button>
-              )}
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                className="hidden"
-                accept=".pdf,.txt,.js,.ts,.py,.java,.cpp,.cs"
-                multiple
-              />
-              <input
-                type="text"
-                className="flex-1 bg-gray-800/70 rounded-lg p-3 focus:outline-none border border-gray-700 focus:border-purple-500 transition-colors"
-                placeholder="Ask me about your studies..."
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                disabled={isLoading || cooldown}
-              />
-              <Button 
-                onClick={() => handleSend()} 
-                className="bg-purple-600 hover:bg-purple-700 transition-colors"
-                disabled={isLoading || cooldown}
-              >
-                {isLoading ? (
-                  <RefreshCw className="w-5 h-5 animate-spin" />
-                ) : (
-                  <Send className="w-5 h-5" />
-                )}
-              </Button>
-            </div>
-
-            <div className="flex items-center justify-between text-sm text-gray-400">
-              <div>
-                {premiumRequests < 20 ? (
-                  <span>Premium requests remaining: {20 - premiumRequests}</span>
-                ) : (
-                  <span>Using standard AI model</span>
-                )}
-              </div>
-              {cooldown && (
-                <span>Please wait before sending another message...</span>
-              )}
             </div>
           </div>
         </div>
       </main>
-
-      <style jsx global>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 8px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: rgba(0, 0, 0, 0.1);
-          border-radius: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(139, 92, 246, 0.3);
-          border-radius: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(139, 92, 246, 0.5);
-        }
-      `}</style>
     </div>
   )
 }
