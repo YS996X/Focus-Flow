@@ -53,6 +53,45 @@ export default function FocusTimerPage() {
   const [timerMode, setTimerMode] = useState<"pomodoro" | "shortBreak" | "longBreak">("pomodoro")
   const [initialTime, setInitialTime] = useState({ minutes: 25, seconds: 0 })
 
+  // Persistent timer: restore state on mount
+  useEffect(() => {
+    const saved = localStorage.getItem("focusTimerState")
+    if (saved) {
+      try {
+        const state = JSON.parse(saved)
+        setMinutes(state.minutes)
+        setSeconds(state.seconds)
+        setIsRunning(state.isRunning)
+        setTimerMode(state.timerMode)
+        setInitialTime(state.initialTime)
+        // If timer was running, recalculate remaining time
+        if (state.isRunning && state.lastUpdated) {
+          const now = Date.now()
+          const elapsed = Math.floor((now - state.lastUpdated) / 1000)
+          let total = state.minutes * 60 + state.seconds - elapsed
+          if (total < 0) total = 0
+          setMinutes(Math.floor(total / 60))
+          setSeconds(total % 60)
+          if (total === 0) setIsRunning(false)
+        }
+      } catch {}
+    }
+  }, [])
+
+  // Save timer state to localStorage efficiently
+  useEffect(() => {
+    // Only save if timer is running or just changed
+    const state = {
+      minutes,
+      seconds,
+      isRunning,
+      timerMode,
+      initialTime,
+      lastUpdated: Date.now(),
+    }
+    localStorage.setItem("focusTimerState", JSON.stringify(state))
+  }, [minutes, seconds, isRunning, timerMode, initialTime])
+
   // Visual timer state
   const [visualTimerProgress, setVisualTimerProgress] = useState(100)
   const [visualTimerDuration, setVisualTimerDuration] = useState(25)
