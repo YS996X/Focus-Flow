@@ -14,7 +14,7 @@ type GroqError = {
   statusText: string;
   message: string;
 }
-const GROQ_API_KEY = "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";
+const GROQ_API_KEY = "REDACTED_FOR_OPENSOURCE";
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 const SYSTEM_PROMPT = `You are Magnolia, a learning companion in Focus Flow by Yuvraj Singh and Om Dwivedi. Help students learn independently while supporting their well-being.
 Your approach:

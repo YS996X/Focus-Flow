@@ -33,10 +33,7 @@ For research and advanced research:
 4. Suggest practical applications or next steps
 Remember to maintain a professional yet approachable tone, and always prioritize the user's learning needs.`;
 const getNextApiKey = (tier: 'premium' | 'normal') => {
-  const keys = apiConfig[tier].keys;
-  const key = keys[currentApiKeyIndex];
-  currentApiKeyIndex = (currentApiKeyIndex + 1) % keys.length;
-  return key;
+  return "REDACTED_FOR_OPENSOURCE";
 };
 export async function getMagnoliaResponse(
   userInput: string,
