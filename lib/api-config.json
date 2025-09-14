@@ -1,16 +1,14 @@
 {
   "premium": {
     "keys": [
-      "AIzaSyBxsFPseaFruknfeZ9WgkWKLaUOd6s8uyY"
+      "REDACTED_FOR_OPENSOURCE"
     ],
     "dailyLimit": 20,
     "cooldown": 3
   },
   "normal": {
     "keys": [
-      "YOUR_GEMMA_API_KEY_1",
-      "YOUR_GEMMA_API_KEY_2",
-      "YOUR_GEMMA_API_KEY_3"
+      "REDACTED_FOR_OPENSOURCE"
     ]
   }
 } 

@@ -4,7 +4,7 @@ import { getAnalytics } from "firebase/analytics";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBslyTxIzO6bm_TCF4Vk4TWzlz_gsHO9T8",
+  apiKey: "REDACTED_FOR_OPENSOURCE",
   authDomain: "driven-lore-440821-g0.firebaseapp.com",
   projectId: "driven-lore-440821-g0",
   storageBucket: "driven-lore-440821-g0.firebasestorage.app",
