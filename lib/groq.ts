@@ -2,7 +2,6 @@ type ChatMessage = {
   role: 'system' | 'user' | 'assistant';
   content: string;
 }
-
 type ChatResponse = {
   choices: Array<{
     message: {
@@ -10,19 +9,14 @@ type ChatResponse = {
     };
   }>;
 }
-
 type GroqError = {
   status: number;
   statusText: string;
   message: string;
 }
-
 const GROQ_API_KEY = "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";
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-
-// The system prompt that defines Magnolia's personality and behavior
 const SYSTEM_PROMPT = `You are Magnolia, a learning companion in Focus Flow by Yuvraj Singh and Om Dwivedi. Help students learn independently while supporting their well-being.
-
 Your approach:
 - Guide with questions rather than providing answers directly
 - Use clear, empathetic communication
@@ -31,9 +25,7 @@ Your approach:
 - Balance helpfulness with encouraging independent thinking
 - Adapt communication style to prevent user frustration
 - dont use ** or other type of markdown formatting. you can use emojis.
-
 Keep responses concise, structured, and ADHD-friendly. Prioritize student understanding over quick solutions.`;
-
 export async function getMagnoliaResponse(userInput: string): Promise<string> {
   try {
     const messages: ChatMessage[] = [
@@ -46,7 +38,6 @@ export async function getMagnoliaResponse(userInput: string): Promise<string> {
         content: userInput
       }
     ];
-
     const response = await fetch(GROQ_API_URL, {
       method: 'POST',
       headers: {
@@ -62,7 +53,6 @@ export async function getMagnoliaResponse(userInput: string): Promise<string> {
         stream: false
       })
     });
-
     if (!response.ok) {
       const errorText = await response.text();
       const errorDetails = {
@@ -70,19 +60,13 @@ export async function getMagnoliaResponse(userInput: string): Promise<string> {
         statusText: response.statusText,
         message: errorText
       };
-      
-      // Log error details to server console
       console.error('Groq API Error:', JSON.stringify(errorDetails));
-      
       return "I apologize, but I'm having trouble processing your request. Please try again in a moment.";
     }
-
     const data: ChatResponse = await response.json();
     return data.choices[0]?.message?.content || "I apologize, but I couldn't generate a response. Please try again.";
   } catch (error) {
-    // Log unexpected errors to server console
     console.error('Unexpected error:', error instanceof Error ? error.message : 'Unknown error');
-    
     return "I apologize, but I'm having trouble connecting right now. Please try again in a moment.";
   }
-} 
+}

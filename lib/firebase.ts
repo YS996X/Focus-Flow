@@ -13,25 +13,14 @@ const firebaseConfig = {
   measurementId: "G-2WQ84DV2C4"
 };
 
-// Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-
-// Initialize Firebase Authentication and get a reference to the service
 const auth = getAuth(app);
-
-// Initialize Firestore
 const db = getFirestore(app);
-
-// Configure Google Provider
 const googleProvider = new GoogleAuthProvider();
-// Add Calendar API scope
 googleProvider.addScope('https://www.googleapis.com/auth/calendar');
 googleProvider.addScope('https://www.googleapis.com/auth/calendar.events');
 googleProvider.setCustomParameters({
   prompt: 'select_account'
 });
-
-// Only initialize analytics if window is available (client-side)
 const analytics = typeof window !== 'undefined' ? getAnalytics(app) : null;
-
-export { app, auth, googleProvider, analytics, db }; 
+export { app, auth, googleProvider, analytics, db };
