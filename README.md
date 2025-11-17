@@ -26,9 +26,3 @@ Focus Flow is a productivity tool designed to help users manage their time effic
 ## Configuration
 
 If you want to use Firebase or any API features, you must provide your own credentials in the appropriate config files (see `lib/firebase.ts` and `lib/api-config.json`).
-
-## Public Domain
-
-This project has been placed in the public domain by Yuvraj Singh and Om Dwivedi. You are free to use, modify, distribute, or repurpose this code for any purpose, personal or commercial, without restriction or attribution.
-
-Enjoy and make it your own!
