@@ -4,13 +4,13 @@ import { getAnalytics } from "firebase/analytics";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "REDACTED_FOR_OPENSOURCE",
-  authDomain: "driven-lore-440821-g0.firebaseapp.com",
-  projectId: "driven-lore-440821-g0",
-  storageBucket: "driven-lore-440821-g0.firebasestorage.app",
-  messagingSenderId: "9227030920",
-  appId: "1:9227030920:web:08a48e0522ec3f527eaa3d",
-  measurementId: "G-2WQ84DV2C4"
+  apiKey: "",
+  authDomain: "",
+  projectId: "",
+  storageBucket: "",
+  messagingSenderId: "",
+  appId: "",
+  measurementId: ""
 };
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
